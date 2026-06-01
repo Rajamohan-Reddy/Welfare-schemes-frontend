@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
-import { Bell, Check, Trash2, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Bell,
+  Check,
+  Trash2,
+  Loader2,
+  ShieldAlert,
+  Info,
+  CheckCircle,
+  FileCheck2,
+  RefreshCw,
+  Sliders,
+} from "lucide-react";
 import toast from "react-hot-toast";
-
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import {
@@ -15,6 +26,7 @@ import {
 function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
+  const [filter, setFilter] = useState("all"); // all, unread, read
 
   useEffect(() => {
     loadNotifications();
@@ -72,173 +84,224 @@ function NotificationsPage() {
     try {
       await deleteAllNotificationsApi();
       setNotifications([]);
-      toast.success("All notifications deleted");
+      toast.success("All notifications cleared");
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete all notifications");
     }
   };
 
+  // Helper to resolve categories and icons based on notification contents
+  const resolveNotificationMeta = (item) => {
+    const title = item.title.toLowerCase();
+    if (title.includes("approve") || title.includes("success") || title.includes("verify")) {
+      return {
+        icon: FileCheck2,
+        colorClass: "bg-emerald-50 border-emerald-100 text-emerald-700",
+        badge: "Operations",
+      };
+    }
+    if (title.includes("alert") || title.includes("reject") || title.includes("critical") || title.includes("warn")) {
+      return {
+        icon: ShieldAlert,
+        colorClass: "bg-red-50 border-red-100 text-red-700",
+        badge: "Critical",
+      };
+    }
+    return {
+      icon: Info,
+      colorClass: "bg-blue-50 border-blue-100 text-blue-700",
+      badge: "Information",
+    };
+  };
+
+  const filteredNotifications = notifications.filter((item) => {
+    if (filter === "unread") return !item.read;
+    if (filter === "read") return item.read;
+    return true;
+  });
+
+  const unreadCount = notifications.filter((item) => !item.read).length;
+
   return (
-    <div className="space-y-8">
-      <div className="rounded-[32px] bg-slate-950 p-8 shadow-2xl">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-sky-300">
-              Alert Intelligence
-            </p>
-            <h1 className="mt-3 text-4xl font-extrabold text-white">
-              Notifications
-            </h1>
-            <p className="mt-2 max-w-2xl text-slate-300">
-              A premium alert console for service updates, application status
-              changes, and verification notifications.
+    <div className="space-y-8 max-w-7xl mx-auto px-1">
+      {/* Alert intelligence header banner */}
+      <div className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#4338CA] p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 h-full w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06)_0,transparent_100%)] pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-bold tracking-widest text-indigo-300">
+              <Bell size={14} /> SYSTEM PULSE & SIGNALS
+            </span>
+            <h1 className="text-4xl font-black tracking-tight leading-tight">Alert Intelligence</h1>
+            <p className="text-sm text-slate-200 leading-relaxed max-w-xl">
+              Monitor priority system events, operational actions, and secure service milestones from a unified administrative and citizen log registry.
             </p>
           </div>
 
-          <div className="rounded-[28px] bg-slate-900 p-6 text-slate-100 shadow-inner">
-            <p className="text-xs uppercase tracking-[0.35em] text-sky-300">
-              System pulse
-            </p>
-            <p className="mt-4 text-3xl font-semibold text-white">
-              {notifications.filter((item) => !item.read).length} unread alerts
-            </p>
-            <p className="mt-2 text-sm text-slate-400">
-              Stay on top of important action items and secure service updates.
-            </p>
-            <div className="mt-5 flex flex-col gap-3">
-              <Button
-                onClick={loadNotifications}
-                variant="secondary"
-                fullWidth={false}
-              >
-                Refresh
-              </Button>
-              <Button
+          {/* Quick Stats & Toggles */}
+          <div className="w-full lg:w-80 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-inner flex justify-between items-center gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">Priority Signals</p>
+              <p className="mt-2 text-2xl font-black text-white">{unreadCount} Unread</p>
+              <p className="text-[11px] text-slate-400 mt-1">Awaiting review</p>
+            </div>
+            
+            <div className="flex flex-col gap-2 shrink-0">
+              <button
                 onClick={handleMarkAll}
-                variant="success"
-                fullWidth={false}
+                className="rounded-full bg-white text-[#0F172A] hover:bg-indigo-50 px-4.5 py-2 text-xs font-bold tracking-wide transition"
               >
                 Mark all read
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={handleDeleteAll}
-                variant="secondary"
-                className="bg-rose-600 text-white hover:bg-rose-700"
-                fullWidth={false}
+                className="rounded-full bg-red-600 hover:bg-red-700 text-white px-4.5 py-2 text-xs font-bold tracking-wide transition"
               >
                 Clear all
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="rounded-[32px] p-6">
-          <div className="flex items-center justify-between gap-4">
+      <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        {/* Main Notifications Log */}
+        <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5 mb-6">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">
-                Message Center
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Latest service notifications delivered directly to your portal.
-              </p>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-600">Event Stream</span>
+              <h2 className="mt-1 text-2xl font-black text-[#071A52] tracking-tight">Active Logs</h2>
             </div>
-            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800">
-              {notifications.length} total
+            
+            {/* Quick Filter Tabs */}
+            <div className="flex bg-slate-50 border border-slate-100 rounded-full p-1 font-semibold text-xs text-slate-500">
+              {["all", "unread", "read"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setFilter(tab)}
+                  className={`rounded-full px-4.5 py-1.5 uppercase tracking-wide transition-all ${
+                    filter === tab ? "bg-white text-[#071A52] shadow-sm font-bold" : "hover:text-[#071A52]"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
 
           {loading ? (
             <div className="flex h-72 items-center justify-center">
-              <Loader2 size={36} className="animate-spin text-blue-600" />
+              <Loader2 size={36} className="animate-spin text-indigo-600" />
             </div>
-          ) : notifications.length === 0 ? (
-            <div className="grid place-items-center gap-3 py-20 text-center text-slate-500">
-              <Bell size={48} className="text-slate-300" />
-              <p className="text-xl font-semibold">No notifications yet</p>
-              <p className="max-w-md text-sm">
-                Your notification feed will surface verification alerts,
-                application updates, and important portal announcements.
-              </p>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center text-slate-500 space-y-4">
+              <div className="h-16 w-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100">
+                <Bell size={28} />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#071A52]">Event Stream Clear</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">No notifications found matches your filters. Everything is up-to-date and operating normally.</p>
+              </div>
             </div>
           ) : (
-            <div className="space-y-4 max-h-[620px] overflow-y-auto pr-2">
-              {notifications.map((notification) => (
-                <div
-                  key={notification._id}
-                  className={`rounded-[28px] border p-5 shadow-sm transition ${notification.read ? "border-slate-200 bg-white" : "border-sky-200 bg-sky-50"}`}
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase ${notification.read ? "bg-slate-100 text-slate-600" : "bg-sky-600 text-white"}`}
-                        >
-                          {notification.read ? "Read" : "New"}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {new Date(notification.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-900">
-                        {notification.title}
-                      </h3>
-                      <p className="text-sm leading-6 text-slate-600">
-                        {notification.message}
-                      </p>
-                    </div>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+              <AnimatePresence initial={false}>
+                {filteredNotifications.map((item, idx) => {
+                  const meta = resolveNotificationMeta(item);
+                  const IconComponent = meta.icon;
 
-                    <div className="flex flex-wrap gap-2">
-                      {!notification.read && (
-                        <Button
-                          onClick={() => handleMarkRead(notification._id)}
-                          variant="success"
-                          fullWidth={false}
-                        >
-                          Mark read
-                        </Button>
-                      )}
-                      <Button
-                        onClick={() => handleDelete(notification._id)}
-                        variant="secondary"
-                        fullWidth={false}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  return (
+                    <motion.div
+                      key={item._id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.25, delay: idx * 0.05 }}
+                      className={`group rounded-3xl border p-5 shadow-sm hover:shadow transition-all ${
+                        item.read ? "border-slate-100 bg-white" : "border-indigo-100 bg-indigo-50/30"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row gap-4 items-start justify-between">
+                        <div className="flex gap-4">
+                          {/* Colored dynamic Icon */}
+                          <div className={`h-11 w-11 rounded-2xl border flex items-center justify-center shrink-0 ${meta.colorClass}`}>
+                            <IconComponent size={20} />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                item.read ? "bg-slate-100 text-slate-500" : "bg-indigo-600 text-white"
+                              }`}>
+                                {item.read ? "Archive" : "New"}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {new Date(item.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <h3 className="text-base font-extrabold text-[#071A52]">{item.title}</h3>
+                            <p className="text-xs leading-relaxed text-slate-500">{item.message}</p>
+                          </div>
+                        </div>
+
+                        {/* Event action controls */}
+                        <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
+                          {!item.read && (
+                            <button
+                              onClick={() => handleMarkRead(item._id)}
+                              className="h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white px-3 text-xs font-bold shadow-md transition"
+                            >
+                              Acknowledge
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            className="h-8 w-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 transition"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           )}
         </Card>
 
-        <Card className="rounded-[32px] bg-slate-950 p-6 text-white">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-sky-300">
-                Notification insights
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold">
-                Engagement summary
-              </h2>
+        {/* Right Insights Hub */}
+        <div className="space-y-6">
+          <div className="w-full rounded-[28px] border border-slate-700 bg-[#0F172A] text-white p-8 shadow-[0_20px_50px_rgba(15,23,42,0.08)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 h-32 w-32 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.05)_0,transparent_100%)] pointer-events-none" />
+            
+            <div className="border-b border-white/5 pb-4 mb-5">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-300">Metrics Hub</span>
+              <h3 className="mt-1 text-xl font-extrabold tracking-tight">Signal Analysis</h3>
             </div>
-            <div className="rounded-[28px] bg-slate-900 p-5">
-              <p className="text-sm text-slate-400">Unread alerts</p>
-              <p className="mt-3 text-4xl font-bold text-white">
-                {notifications.filter((item) => !item.read).length}
-              </p>
-            </div>
-            <div className="rounded-[28px] bg-slate-900 p-5">
-              <p className="text-sm text-slate-400">Recent event type</p>
-              <p className="mt-3 text-lg font-semibold text-white">
-                {notifications[0]?.title || "No recent notifications"}
-              </p>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Alerts Load</p>
+                <p className="mt-2 text-3xl font-black text-[#FFD95A]">{unreadCount} Alerts</p>
+              </div>
+
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Latest Registered Log</p>
+                <p className="mt-2 text-sm font-bold truncate">{notifications[0]?.title || "No recent activity logged"}</p>
+              </div>
+
+              <button
+                onClick={loadNotifications}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 p-4 text-xs font-bold text-white transition mt-4"
+              >
+                <RefreshCw size={14} /> Refresh Channels
+              </button>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

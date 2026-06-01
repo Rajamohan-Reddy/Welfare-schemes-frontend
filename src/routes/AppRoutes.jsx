@@ -31,11 +31,12 @@ import AdminStaffPage from "../features/admin/pages/AdminStaffPage";
 import OfficerDashboardPage from "../features/officer/pages/OfficerDashboardPage";
 import OfficerQueuePage from "../features/officer/pages/OfficerQueuePage";
 import OfficerReviewPage from "../features/officer/pages/OfficerReviewPage";
+import LandingPage from "../features/landing/pages/LandingPage";
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<LandingPage />} />
 
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />

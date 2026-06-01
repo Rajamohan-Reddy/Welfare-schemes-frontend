@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-
+import { useEffect, useState, useRef } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -13,27 +12,27 @@ import {
   Loader2,
   BadgeCheck,
   MessageSquareMore,
+  Sparkles,
+  Building,
+  Activity,
+  Heart,
 } from "lucide-react";
-
 import { useParams, useNavigate } from "react-router-dom";
-
 import { getApplicationByIdApi } from "../api/applications.api";
+import Card from "../../../components/ui/Card";
 
 function ApplicationTrackingPage() {
   const { applicationId } = useParams();
   const navigate = useNavigate();
-
   const [loading, setLoading] = useState(true);
   const [application, setApplication] = useState(null);
+  const canvasRef = useRef(null);
 
   const API_BASE_URL = "http://localhost:5000";
 
   const loadApplication = async () => {
     try {
-      setLoading(true);
-
       const response = await getApplicationByIdApi(applicationId);
-
       setApplication(response.data.data);
     } catch (error) {
       console.error(error);
@@ -47,6 +46,84 @@ function ApplicationTrackingPage() {
     const refreshInterval = setInterval(loadApplication, 15000);
     return () => clearInterval(refreshInterval);
   }, [applicationId]);
+
+  // Confetti Animation Engine
+  useEffect(() => {
+    if (application?.status === "BENEFIT_DISBURSED" && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      let animationFrameId;
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ["#FFD95A", "#60A5FA", "#34D399", "#F472B6", "#A78BFA", "#F59E0B"];
+
+      class Particle {
+        constructor() {
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * canvas.height - canvas.height;
+          this.r = Math.random() * 6 + 4;
+          this.d = Math.random() * canvas.height;
+          this.color = colors[Math.floor(Math.random() * colors.length)];
+          this.tilt = Math.random() * 10 - 5;
+          this.tiltAngleIncremental = Math.random() * 0.07 + 0.02;
+          this.tiltAngle = 0;
+        }
+
+        draw() {
+          ctx.beginPath();
+          ctx.lineWidth = this.r / 2;
+          ctx.strokeStyle = this.color;
+          ctx.moveTo(this.x + this.tilt + this.r / 2, this.y);
+          ctx.lineTo(this.x + this.tilt, this.y + this.tilt + this.r / 2);
+          ctx.stroke();
+        }
+
+        update() {
+          this.tiltAngle += this.tiltAngleIncremental;
+          this.y += (Math.cos(this.d) + 3 + this.r / 2) / 2;
+          this.x += Math.sin(this.tiltAngle);
+          this.tilt = Math.sin(this.tiltAngle - this.r / 2) * 5;
+
+          if (this.y > canvas.height) {
+            this.x = Math.random() * canvas.width;
+            this.y = -20;
+            this.tilt = Math.random() * 10 - 5;
+          }
+        }
+      }
+
+      // Initial particles burst
+      for (let i = 0; i < 150; i++) {
+        particles.push(new Particle());
+      }
+
+      const animate = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach((p) => {
+          p.update();
+          p.draw();
+        });
+        animationFrameId = requestAnimationFrame(animate);
+      };
+
+      animate();
+
+      const handleResize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        window.removeEventListener("resize", handleResize);
+      };
+    }
+  }, [application?.status]);
 
   const statusSteps = [
     "SUBMITTED",
@@ -71,445 +148,227 @@ function ApplicationTrackingPage() {
   if (loading) {
     return (
       <div className="flex h-[70vh] items-center justify-center">
-        <Loader2 size={42} className="animate-spin text-blue-600" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={42} className="animate-spin text-blue-600" />
+          <p className="text-xs font-semibold text-slate-400">Querying System Registry...</p>
+        </div>
       </div>
     );
   }
 
   if (!application) {
     return (
-      <div className="rounded-3xl bg-white p-10 text-center">
-        Application not found
+      <div className="rounded-[36px] bg-white p-16 text-center border border-slate-200 shadow-sm space-y-4">
+        <XCircle size={40} className="mx-auto text-slate-300" />
+        <h3 className="text-lg font-bold text-[#071A52]">Registry File Missing</h3>
+        <p className="text-xs text-slate-400">We couldn't retrieve the requested application tracking log.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* HERO */}
+    <div className="space-y-8 max-w-7xl mx-auto px-1 relative">
+      {/* Canvas for Disbursal Confetti celebration overlay */}
+      {application?.status === "BENEFIT_DISBURSED" && (
+        <canvas
+          ref={canvasRef}
+          className="fixed inset-0 pointer-events-none z-50 w-full h-full"
+        />
+      )}
 
-      <section
-        className="
-          relative
-          overflow-hidden
-          rounded-[40px]
-          bg-gradient-to-r
-          from-[#071A52]
-          via-[#0F4C81]
-          to-[#2563EB]
-          p-8
-          text-white
-          shadow-xl
-        "
+      {/* Back button */}
+      <button
+        onClick={() => navigate("/citizen/applications")}
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 px-4.5 py-2 text-xs font-bold text-slate-700 transition"
       >
-        <div className="absolute right-0 top-0 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+        <ArrowLeft size={14} /> Back to Applications
+      </button>
 
-        <div className="relative z-10">
-          <button
-            onClick={() => navigate("/citizen/applications")}
-            className="
-              mb-6
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              bg-white/10
-              px-4
-              py-2
-              backdrop-blur-md
-              transition
-              hover:bg-white/20
-            "
-          >
-            <ArrowLeft size={18} />
-            Back to Applications
-          </button>
+      {/* Hero tracking banner */}
+      <section className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-[#071A52] via-[#0F4C81] to-[#2563EB] p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 h-full w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06)_0,transparent_100%)] pointer-events-none" />
+        <div className="absolute bottom-[-60px] left-10 h-32 w-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
 
-          <div className="grid gap-6 xl:grid-cols-[1.45fr_0.95fr]">
-            <div>
-              <div className="inline-flex rounded-full bg-white/10 px-4 py-2 text-sm uppercase tracking-[0.28em] text-sky-200">
-                Citizen Application Tracking
+        <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4 max-w-xl">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase border border-white/20 bg-white/10 tracking-wider">
+              <Sparkles size={12} className="text-[#FFD95A]" /> REAL-TIME TIMELINE TRACKER
+            </span>
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
+              {application.applicationNumber}
+            </h1>
+            <p className="text-sm leading-relaxed text-blue-100/90 max-w-xl">
+              Track verification updates, document validation checkpoints, and final benefit disbursals securely.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2 pt-2">
+              <div className="rounded-2xl bg-slate-900/60 border border-white/10 p-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Submitted Date</span>
+                <span className="text-sm font-bold mt-1 block">{new Date(application.submittedAt).toLocaleDateString()}</span>
               </div>
-
-              <h1 className="mt-5 text-5xl font-extrabold tracking-tight">
-                {application.applicationNumber}
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-slate-200">
-                Keep an eye on every verification milestone and approval update in a polished enterprise-ready tracker.
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-slate-900/80 p-5 text-slate-100 shadow-xl ring-1 ring-white/10">
-                  <p className="text-sm uppercase tracking-[0.3em] text-sky-300">Submitted</p>
-                  <p className="mt-2 text-lg font-semibold">{new Date(application.submittedAt).toLocaleDateString()}</p>
-                </div>
-                <div className="rounded-3xl bg-slate-900/80 p-5 text-slate-100 shadow-xl ring-1 ring-white/10">
-                  <p className="text-sm uppercase tracking-[0.3em] text-sky-300">Last updated</p>
-                  <p className="mt-2 text-lg font-semibold">
-                    {new Date(application.updatedAt || application.approvedAt || application.submittedAt).toLocaleDateString()}
-                  </p>
-                </div>
+              <div className="rounded-2xl bg-slate-900/60 border border-white/10 p-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Last Registry Sync</span>
+                <span className="text-sm font-bold mt-1 block">
+                  {new Date(application.updatedAt || application.approvedAt || application.submittedAt).toLocaleDateString()}
+                </span>
               </div>
             </div>
+          </div>
 
-            <div className="rounded-[32px] bg-white/5 p-5 shadow-inner ring-1 ring-white/10 backdrop-blur-xl">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
-                    Processing progress
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{progress}%</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={loadApplication}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                >
-                  Refresh
-                </button>
-              </div>
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-500 transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="mt-4 rounded-full bg-slate-950/80 px-4 py-2 text-sm font-semibold text-slate-100">
-                {application.status.replaceAll("_", " ")}
-              </div>
+          {/* Interactive progress wheel */}
+          <div className="w-full lg:w-[42%] rounded-3xl bg-white/5 border border-white/10 p-6 shadow-inner backdrop-blur-md">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Processing Stage</span>
+              <span className="text-xs font-bold text-[#FFD95A]">{progress}% Done</span>
+            </div>
+            
+            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#FFD95A]" style={{ width: `${progress}%` }} />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3 bg-slate-950/40 rounded-2xl px-4 py-3 text-xs font-bold uppercase border border-white/5">
+              <span className="truncate">{application.status.replaceAll("_", " ")}</span>
+              <button
+                onClick={loadApplication}
+                className="rounded-full bg-white text-[#071A52] px-3.5 py-1 text-[10px] font-extrabold hover:bg-slate-100 transition shrink-0"
+              >
+                Refresh Log
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SUMMARY */}
-
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <InfoCard
-          title="Application Number"
-          value={application.applicationNumber}
-        />
-
-        <InfoCard title="Scheme" value={application.schemeId?.schemeName} />
-
-        <InfoCard
-          title="Current Status"
-          value={application.status.replaceAll("_", " ")}
-          success
-        />
-
-        <InfoCard
-          title="Submitted"
-          value={new Date(application.submittedAt).toLocaleDateString()}
-        />
-      </div>
-
-      {/* STATUS + HEALTH */}
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div
-          className="
-            rounded-[32px]
-            border
-            border-blue-100
-            bg-gradient-to-r
-            from-blue-50
-            to-white
-            p-6
-          "
-        >
-          <div className="flex items-center gap-4">
-            <Clock3 size={28} className="text-blue-600" />
-
-            <div>
-              <h2 className="text-xl font-bold">Current Status</h2>
-
-              <p className="mt-1 text-slate-600">
-                {application.status.replaceAll("_", " ")}
-              </p>
-            </div>
+      {/* Celebration disbursal notification card */}
+      {application?.status === "BENEFIT_DISBURSED" && (
+        <div className="rounded-[32px] bg-gradient-to-r from-emerald-500 to-teal-600 p-8 text-white shadow-xl relative overflow-hidden flex items-center gap-6 animate-bounce-short">
+          <div className="h-16 w-16 bg-white/10 rounded-2xl flex items-center justify-center text-white shadow-inner shrink-0 animate-pulse">
+            <Heart size={28} />
           </div>
-        </div>
-
-        <div className="rounded-[32px] bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <ShieldCheck size={24} className="text-green-600" />
-
-            <h2 className="text-xl font-bold">Application Health</h2>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            <HealthItem text="Application Submitted" success />
-
-            <HealthItem text="Documents Uploaded" success />
-
-            <HealthItem text="Under Government Review" pending />
-          </div>
-        </div>
-      </div>
-
-      {/* TIMELINE */}
-
-      <div className="rounded-[32px] bg-white p-8 shadow-xl ring-1 ring-slate-200/80">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Application Journey</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Track each verification and approval milestone with crisp progress markers.
+            <h2 className="text-2xl font-black tracking-tight leading-tight">Congratulations! Welfare Released 🎉</h2>
+            <p className="text-sm text-emerald-100 mt-1 leading-relaxed max-w-xl">
+              Direct Benefit Transfer (DBT) funds successfully released and mapped to your verified bank account ledger!
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-sm font-semibold text-slate-900">
-            <ShieldCheck size={16} className="text-sky-600" />
-            Verified by Government
-          </div>
         </div>
+      )}
 
-        <div className="mt-8 space-y-6">
-          {statusSteps.map((step, index) => (
-            <TimelineItem
-              key={step}
-              title={step}
-              completed={index <= currentStep}
-              current={index === currentStep}
-              last={index === statusSteps.length - 1}
-            />
-          ))}
-        </div>
+      {/* Parameters Overview Grid */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <InfoSummaryCard title="Program Code" val={application.applicationNumber} />
+        <InfoSummaryCard title="Welfare Program" val={application.schemeId?.schemeName} />
+        <InfoSummaryCard title="Verification State" val={application.status.replaceAll("_", " ")} active />
+        <InfoSummaryCard title="Logged Date" val={new Date(application.submittedAt).toLocaleDateString()} />
       </div>
 
-      {/* DOCUMENTS */}
+      {/* Visual application journey timeline */}
+      <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="rounded-[36px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h2 className="text-lg font-black text-[#071A52]">Application Milestone Timeline</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Verification checkpoint progress mapping.</p>
+          </div>
 
-      <div className="rounded-[32px] bg-white p-8 shadow-sm">
-        <div className="mb-8 flex items-center gap-3">
-          <FileCheck size={24} className="text-blue-600" />
+          <div className="space-y-4">
+            {statusSteps.map((step, index) => (
+              <TimelineTrackerItem
+                key={step}
+                title={step}
+                completed={index <= currentStep}
+                current={index === currentStep}
+                last={index === statusSteps.length - 1}
+              />
+            ))}
+          </div>
+        </Card>
 
-          <h2 className="text-2xl font-bold">Uploaded Documents</h2>
-        </div>
+        {/* Uploaded Documents List */}
+        <div className="space-y-6">
+          <Card className="rounded-[36px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-lg font-black text-[#071A52]">Uploaded Files Registry</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Verified checklist documents.</p>
+            </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          {application.documents?.map((document, index) => (
-            <div
-              key={index}
-              className="
-                  rounded-3xl
-                  border
-                  border-slate-200
-                  bg-gradient-to-br
-                  from-white
-                  to-slate-50
-                  p-5
-                "
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-bold">{document.documentType}</h3>
+            <div className="space-y-4">
+              {application.documents?.map((document, index) => (
+                <div key={index} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                  <div className="flex gap-3 items-center min-w-0">
+                    <div className="h-10 w-10 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl flex items-center justify-center shrink-0">
+                      <FileCheck size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#071A52] truncate">{document.documentType}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Checklist Verified</p>
+                    </div>
+                  </div>
 
-                  <p className="mt-2 text-sm text-slate-500">
-                    Uploaded Successfully
-                  </p>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => window.open(`${API_BASE_URL}/${document.fileUrl}`, "_blank")}
+                      title="Preview"
+                      className="h-8 w-8 rounded-full bg-blue-50 border border-blue-100 text-blue-700 flex items-center justify-center hover:bg-blue-100 transition"
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <a
+                      href={`${API_BASE_URL}/${document.fileUrl}`}
+                      download
+                      title="Download"
+                      className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center hover:bg-emerald-100 transition"
+                    >
+                      <Download size={13} />
+                    </a>
+                  </div>
                 </div>
-
-                <BadgeCheck className="text-green-500" size={22} />
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  onClick={() =>
-                    window.open(`${API_BASE_URL}/${document.fileUrl}`, "_blank")
-                  }
-                  className="
-                      flex
-                      items-center
-                      gap-2
-                      rounded-xl
-                      bg-blue-50
-                      px-4
-                      py-2
-                      text-sm
-                      font-semibold
-                      text-blue-700
-                    "
-                >
-                  <Eye size={16} />
-                  Preview
-                </button>
-
-                <a
-                  href={`${API_BASE_URL}/${document.fileUrl}`}
-                  download
-                  className="
-                      flex
-                      items-center
-                      gap-2
-                      rounded-xl
-                      bg-green-50
-                      px-4
-                      py-2
-                      text-sm
-                      font-semibold
-                      text-green-700
-                    "
-                >
-                  <Download size={16} />
-                  Download
-                </a>
-              </div>
+              ))}
             </div>
-          ))}
+          </Card>
         </div>
       </div>
-
-      {/* REMARKS */}
-
-      {(application.officerRemarks || application.applicantRemarks) && (
-        <div className="rounded-[32px] bg-white p-8 shadow-sm">
-          <h2 className="text-2xl font-bold">Remarks</h2>
-
-          {application.applicantRemarks && (
-            <div className="mt-5 rounded-2xl bg-slate-50 p-5">
-              <h4 className="font-semibold">Applicant Remarks</h4>
-
-              <p className="mt-2 text-slate-600">
-                {application.applicantRemarks}
-              </p>
-            </div>
-          )}
-
-          {application.officerRemarks && (
-            <div className="mt-5 rounded-2xl bg-blue-50 p-5">
-              <h4 className="font-semibold">Officer Remarks</h4>
-
-              <p className="mt-2 text-slate-600">
-                {application.officerRemarks}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SUPPORT */}
-
-      <div
-        className="
-          rounded-[32px]
-          bg-gradient-to-r
-          from-slate-900
-          to-slate-800
-          p-8
-          text-white
-        "
-      >
-        <div className="flex items-center gap-3">
-          <MessageSquareMore size={24} />
-          <h2 className="text-2xl font-bold">Need Assistance?</h2>
-        </div>
-
-        <p className="mt-4 text-slate-300">
-          Contact AP Welfare Citizen Support.
-        </p>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div>
-            <p className="text-sm text-slate-400">Helpline</p>
-            <h3 className="font-bold">1902</h3>
-          </div>
-
-          <div>
-            <p className="text-sm text-slate-400">Email</p>
-            <h3 className="font-bold">support@apwelfare.gov.in</h3>
-          </div>
-
-          <div>
-            <p className="text-sm text-slate-400">Service Window</p>
-            <h3 className="font-bold">Mon - Sat</h3>
-          </div>
-        </div>
-      </div>
-
-      {/* REJECTED */}
-
-      {application.status === "REJECTED" && (
-        <div className="rounded-[32px] border border-red-200 bg-red-50 p-8">
-          <div className="flex gap-3">
-            <XCircle size={22} className="text-red-600" />
-
-            <div>
-              <h3 className="font-bold text-red-700">Application Rejected</h3>
-
-              <p className="mt-2 text-red-600">{application.rejectionReason}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-function InfoCard({ title, value }) {
+function InfoSummaryCard({ title, val, active }) {
   return (
-    <div className="rounded-[28px] bg-white p-6 shadow-sm">
-      <p className="text-sm text-slate-500">{title}</p>
-
-      <h3 className="mt-2 font-bold text-slate-900">{value}</h3>
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
+      <h3 className={`mt-2 text-sm font-extrabold ${active ? "text-blue-600 uppercase" : "text-slate-800"}`}>{val}</h3>
     </div>
   );
 }
 
-function HealthItem({ text, success, pending }) {
-  return (
-    <div className="flex items-center gap-3">
-      {success ? (
-        <CheckCircle2 size={18} className="text-green-500" />
-      ) : (
-        <Clock3 size={18} className="text-amber-500" />
-      )}
-
-      <span>{text}</span>
-    </div>
-  );
-}
-
-function TimelineItem({ title, completed, current, last }) {
-  const Icon = completed ? CheckCircle2 : current ? ShieldCheck : Wallet;
+function TimelineTrackerItem({ title, completed, current, last }) {
+  const color = completed
+    ? "bg-emerald-500 border-emerald-600 text-white"
+    : current
+      ? "bg-blue-600 border-blue-700 text-white animate-pulse"
+      : "bg-slate-50 border-slate-200 text-slate-400";
 
   return (
-    <div className="relative flex gap-5 pb-10">
+    <div className="relative flex items-start gap-4">
+      {/* Connector line */}
       {!last && (
-        <div
-          className="
-            absolute
-            left-[18px]
-            top-10
-            h-full
-            w-[2px]
-            bg-slate-200
-          "
-        />
+        <span className={`absolute left-5.5 top-11 h-6 w-[2px] ${completed ? "bg-emerald-500" : "bg-slate-200"}`} />
       )}
 
-      <div
-        className={`
-          flex
-          h-10
-          w-10
-          items-center
-          justify-center
-          rounded-full
-          ${
-            completed
-              ? "bg-green-500 text-white"
-              : current
-                ? "bg-blue-600 text-white"
-                : "bg-slate-200 text-slate-500"
-          }
-        `}
-      >
-        <Icon size={18} />
+      <div className={`h-11 w-11 rounded-full border flex items-center justify-center shrink-0 shadow-sm ${color}`}>
+        {completed ? (
+          <CheckCircle2 size={16} />
+        ) : current ? (
+          <ShieldCheck size={16} />
+        ) : (
+          <Wallet size={16} />
+        )}
       </div>
 
-      <div>
-        <h3 className="font-semibold">{title.replaceAll("_", " ")}</h3>
+      <div className="pt-2">
+        <h3 className="text-sm font-extrabold text-[#071A52]">{title.replaceAll("_", " ")}</h3>
+        <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-widest">
+          {completed ? "Completed Checkpoint" : current ? "Current Verification Stage" : "Scheduled Checkpoint"}
+        </p>
       </div>
     </div>
   );

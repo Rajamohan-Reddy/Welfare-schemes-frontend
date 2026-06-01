@@ -1,10 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-
-import { Search, Sparkles, Loader2 } from "lucide-react";
-
+import {
+  Search, Sparkles, Loader2, Layers, Building2, TrendingUp,
+  CheckCircle, Filter, Globe, ArrowRight, ChevronDown,
+} from "lucide-react";
 import SchemeCard from "../components/SchemeCard";
-
 import { getAllCategoriesApi, getAllSchemesApi } from "../api/schemes.api";
+
+// Category icon/gradient map
+const categoryGradients = {
+  EDUCATION:    "from-indigo-600 to-violet-600",
+  AGRICULTURE:  "from-emerald-600 to-teal-600",
+  HEALTH:       "from-rose-600 to-pink-600",
+  HOUSING:      "from-orange-500 to-amber-600",
+  PENSION:      "from-cyan-600 to-sky-600",
+  WOMEN_WELFARE:"from-pink-500 to-fuchsia-600",
+  EMPLOYMENT:   "from-blue-600 to-indigo-600",
+  DISABILITY:   "from-purple-600 to-violet-700",
+  STUDENT:      "from-violet-500 to-purple-600",
+};
 
 function BrowseSchemesPage() {
   const [loading, setLoading] = useState(true);
@@ -12,18 +25,17 @@ function BrowseSchemesPage() {
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [sortBy, setSortBy] = useState("newest"); // newest | amount | name
 
   const loadData = async () => {
     try {
       setLoading(true);
-
-      const [schemesResponse, categoriesResponse] = await Promise.all([
+      const [schemesRes, categoriesRes] = await Promise.all([
         getAllSchemesApi(),
         getAllCategoriesApi(),
       ]);
-
-      setSchemes(schemesResponse?.data?.data || []);
-      setCategories(categoriesResponse?.data?.data || []);
+      setSchemes(schemesRes?.data?.data || []);
+      setCategories(categoriesRes?.data?.data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -31,142 +43,171 @@ function BrowseSchemesPage() {
     }
   };
 
-  useEffect(() => {
-    const initialize = async () => {
-      await loadData();
-    };
+  useEffect(() => { loadData(); }, []);
 
-    initialize();
+  // Sync search param from URL (header search)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("search");
+    if (q) setSearch(q);
   }, []);
 
   const filteredSchemes = useMemo(() => {
-    return schemes.filter((scheme) => {
+    let list = schemes.filter((scheme) => {
       const query = search.toLowerCase();
-
       const matchesSearch =
         scheme.schemeName?.toLowerCase().includes(query) ||
         scheme.description?.toLowerCase().includes(query) ||
         scheme.department?.toLowerCase().includes(query) ||
         scheme.benefitType?.toLowerCase().includes(query) ||
         scheme.categoryId?.categoryName?.toLowerCase().includes(query);
-
       const matchesCategory =
         !selectedCategory || scheme.categoryId?._id === selectedCategory;
-
       return matchesSearch && matchesCategory;
     });
-  }, [schemes, search, selectedCategory]);
+
+    if (sortBy === "amount") list = [...list].sort((a, b) => (b.benefitAmount || 0) - (a.benefitAmount || 0));
+    if (sortBy === "name") list = [...list].sort((a, b) => (a.schemeName || "").localeCompare(b.schemeName || ""));
+
+    return list;
+  }, [schemes, search, selectedCategory, sortBy]);
+
+  const activeSchemes = schemes.filter((s) => s.isActive).length;
+  const departments = new Set(schemes.map((s) => s.department)).size;
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-10 text-white shadow-xl">
-        <div className="absolute right-8 top-8 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute left-8 bottom-8 h-52 w-52 rounded-full bg-sky-500/15 blur-3xl" />
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* ── Hero Banner ────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#040e2e] via-[#071A52] to-[#0f3285] text-white shadow-2xl">
+        {/* Decorative glows */}
+        <div className="absolute top-0 right-0 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 left-20 h-60 w-60 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm uppercase tracking-[0.28em] text-sky-200">
-            <Sparkles size={14} />
-            Andhra Pradesh Welfare Services
+        {/* Grid pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "28px 28px" }}
+        />
+
+        <div className="relative z-10 px-8 py-10 sm:px-12 sm:py-12">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-4 max-w-xl">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-xs font-bold tracking-widest text-[#FFD95A]">
+                <Globe size={13} /> AP CITIZEN WELFARE REGISTRY
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
+                Discover <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD95A] to-[#FFA347]">Welfare</span> Schemes
+              </h1>
+              <p className="text-sm leading-relaxed text-blue-200/80 max-w-md">
+                Explore Andhra Pradesh government welfare programs. Apply with one click and track your benefit journey in real-time.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs font-bold text-blue-200">
+                <span className="flex items-center gap-1.5"><CheckCircle size={13} className="text-emerald-400" /> {activeSchemes} Active Schemes</span>
+                <span className="flex items-center gap-1.5"><Building2 size={13} className="text-amber-400" /> {departments} Departments</span>
+                <span className="flex items-center gap-1.5"><Layers size={13} className="text-blue-400" /> {categories.length} Categories</span>
+              </div>
+            </div>
+
+            {/* Live search in hero */}
+            <div className="w-full lg:w-[420px]">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-300/70" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search schemes, departments, categories…"
+                  className="w-full h-14 rounded-2xl border border-white/10 bg-white/10 backdrop-blur-md pl-12 pr-4 text-sm font-semibold text-white outline-none focus:border-blue-400 focus:bg-white/15 placeholder:text-blue-300/60 transition"
+                />
+              </div>
+              <p className="mt-2 text-[10px] text-blue-400/80 font-semibold text-right">
+                {filteredSchemes.length} result{filteredSchemes.length !== 1 ? "s" : ""} found
+              </p>
+            </div>
           </div>
-          <h1 className="mt-6 text-5xl font-extrabold tracking-tight text-white">
-            Discover premium welfare schemes
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg text-slate-300">
-            Browse official government benefits with curated filters, secure
-            application paths, and real-time scheme insights.
-          </p>
         </div>
       </section>
 
-      <div className="rounded-[32px] border border-slate-800 bg-slate-950 p-6 shadow-xl">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">
-              Search schemes
-            </h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Filter by category, department, and expected benefit type.
-            </p>
-          </div>
-          <div className="relative w-full max-w-2xl">
-            <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search schemes, departments, pensions, scholarships..."
-              className="h-14 w-full rounded-full border border-slate-700 bg-slate-900/90 px-14 text-white outline-none transition focus:border-sky-400"
+      {/* ── Stat Cards ─────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total Schemes" value={schemes.length} icon={Layers} color="from-blue-500 to-indigo-600" />
+        <StatCard label="Active Programs" value={activeSchemes} icon={CheckCircle} color="from-emerald-500 to-teal-600" />
+        <StatCard label="Departments" value={departments} icon={Building2} color="from-amber-500 to-orange-600" />
+        <StatCard label="Categories" value={categories.length} icon={TrendingUp} color="from-purple-500 to-fuchsia-600" />
+      </div>
+
+      {/* ── Filter Bar ─────────────────────────────── */}
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Category Pills */}
+        <div className="flex flex-wrap gap-2">
+          <FilterPill label="All" active={!selectedCategory} onClick={() => setSelectedCategory(null)} />
+          {categories.map((cat) => (
+            <FilterPill
+              key={cat._id}
+              label={cat.categoryName}
+              active={cat._id === selectedCategory}
+              onClick={() => setSelectedCategory(cat._id === selectedCategory ? null : cat._id)}
             />
+          ))}
+        </div>
+
+        {/* Sort dropdown */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Filter size={14} className="text-slate-400" />
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="h-9 rounded-xl border border-slate-200 bg-slate-50 pl-3 pr-8 text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none"
+            >
+              <option value="newest">Latest First</option>
+              <option value="amount">Highest Benefit</option>
+              <option value="name">A–Z Name</option>
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatusCard
-          title="Total Schemes"
-          value={schemes.length}
-          accent="from-indigo-500 to-cyan-500"
-        />
-        <StatusCard
-          title="Categories"
-          value={categories.length}
-          accent="from-emerald-500 to-teal-500"
-        />
-        <StatusCard
-          title="Departments"
-          value={new Set(schemes.map((s) => s.department)).size}
-          accent="from-sky-500 to-blue-500"
-        />
-        <StatusCard
-          title="Active"
-          value={schemes.filter((s) => s.isActive).length}
-          accent="from-slate-500 to-slate-700"
-        />
-      </div>
-
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* ── Schemes Grid ───────────────────────────── */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-semibold text-slate-900">
-              Available schemes
+            <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600">State Initiatives</span>
+            <h2 className="text-xl font-black text-[#071A52] tracking-tight mt-0.5">
+              {selectedCategory ? categories.find((c) => c._id === selectedCategory)?.categoryName : "All Welfare Programs"}
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Showing the best welfare programs with a polished citizen
-              experience.
-            </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {categories.slice(0, 6).map((category) => (
-              <button
-                key={category._id}
-                onClick={() =>
-                  setSelectedCategory(
-                    category._id === selectedCategory ? null : category._id,
-                  )
-                }
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${category._id === selectedCategory ? "bg-slate-900 text-white shadow-lg" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-              >
-                {category.categoryName}
-              </button>
-            ))}
-          </div>
+          <span className="text-xs font-bold text-slate-400">{filteredSchemes.length} programs</span>
         </div>
 
         {loading ? (
-          <div className="flex h-[50vh] items-center justify-center">
-            <div className="flex flex-col items-center gap-4 text-slate-500">
-              <Loader2 size={36} className="animate-spin text-blue-600" />
-              <p>Loading schemes...</p>
+          <div className="flex h-60 items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative h-12 w-12">
+                <div className="absolute inset-0 rounded-full border-4 border-blue-100" />
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 animate-spin" />
+              </div>
+              <p className="text-xs font-semibold text-slate-400">Loading Welfare Registry…</p>
             </div>
           </div>
         ) : filteredSchemes.length === 0 ? (
-          <div className="rounded-[28px] bg-white p-10 text-center shadow-sm">
-            <h3 className="text-xl font-semibold">No schemes found</h3>
-            <p className="mt-2 text-slate-500">
-              Try another search term or category.
+          <div className="rounded-3xl border border-slate-100 bg-white p-16 text-center shadow-sm space-y-3">
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
+              <Search size={28} className="text-slate-300" />
+            </div>
+            <h3 className="text-lg font-bold text-[#071A52]">No Programs Found</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Adjust your search query or category filters to discover more welfare programs.
             </p>
+            <button
+              onClick={() => { setSearch(""); setSelectedCategory(null); }}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#071A52] px-5 py-2 text-xs font-bold text-white hover:bg-blue-900 transition"
+            >
+              Clear Filters <ArrowRight size={12} />
+            </button>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredSchemes.map((scheme) => (
               <SchemeCard key={scheme._id} scheme={scheme} />
             ))}
@@ -177,18 +218,32 @@ function BrowseSchemesPage() {
   );
 }
 
-function StatusCard({ title, value, accent }) {
+function StatCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm uppercase tracking-[0.25em] text-slate-500">
-        {title}
-      </p>
-      <div
-        className={`mt-4 inline-flex rounded-full bg-gradient-to-r ${accent} px-4 py-2 text-xl font-semibold text-white shadow-lg`}
-      >
-        {value}
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-md transition flex items-center gap-4">
+      <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center text-white shadow-md shrink-0`}>
+        <Icon size={20} />
+      </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+        <p className="text-2xl font-black text-[#071A52] tracking-tight mt-0.5">{value}</p>
       </div>
     </div>
+  );
+}
+
+function FilterPill({ label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-[11px] font-bold tracking-wide transition-all ${
+        active
+          ? "bg-[#071A52] text-white shadow-md"
+          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

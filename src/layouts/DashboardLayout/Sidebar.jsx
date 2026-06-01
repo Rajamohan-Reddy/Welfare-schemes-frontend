@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   LayoutDashboard,
   Search,
@@ -9,31 +9,24 @@ import {
   Settings,
   ShieldCheck,
   Users,
-  LogOut,
-  Menu,
   ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
-import { clearAuthStorage, getUser } from "../../utils/storage";
+import { getUser } from "../../utils/storage";
 import Logo from "../../assets/images/ap-logo.png";
 
-function Sidebar() {
-  const navigate = useNavigate();
+function Sidebar({ expanded, setExpanded }) {
   const user = getUser();
-  const [expanded, setExpanded] = useState(false);
 
   const menuItems = useMemo(() => {
     if (!user) return [];
 
     if (user.role === "ADMIN") {
       return [
-        {
-          label: "Command Center",
-          icon: LayoutDashboard,
-          path: "/admin/dashboard",
-        },
+        { label: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard" },
         { label: "Operations", icon: Users, path: "/admin/staff" },
         { label: "Intelligence", icon: FileText, path: "/admin/reports" },
         { label: "Alerts", icon: Bell, path: "/admin/notifications" },
@@ -42,122 +35,121 @@ function Sidebar() {
 
     if (user.role === "OFFICER") {
       return [
-        {
-          label: "Command Center",
-          icon: LayoutDashboard,
-          path: "/officer/dashboard",
-        },
+        { label: "Command Center", icon: LayoutDashboard, path: "/officer/dashboard" },
         { label: "Review Command", icon: ShieldCheck, path: "/officer/queue" },
         { label: "Alerts", icon: Bell, path: "/officer/notifications" },
       ];
     }
 
     return [
-      {
-        label: "Command Center",
-        icon: LayoutDashboard,
-        path: "/citizen/dashboard",
-      },
+      { label: "Command Center", icon: LayoutDashboard, path: "/citizen/dashboard" },
       { label: "Schemes", icon: Search, path: "/citizen/schemes" },
       { label: "Applications", icon: FileText, path: "/citizen/applications" },
       { label: "Alerts", icon: Bell, path: "/citizen/notifications" },
       { label: "Profile", icon: User, path: "/citizen/profile" },
       { label: "Settings", icon: Settings, path: "/citizen/settings" },
-      {
-        label: "Eligibility",
-        icon: CheckCircle2,
-        path: "/citizen/eligibility",
-      },
+      { label: "Eligibility", icon: CheckCircle2, path: "/citizen/eligibility" },
     ];
   }, [user]);
 
-  const handleLogout = () => {
-    clearAuthStorage();
-    navigate("/login");
-  };
-
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/10 bg-[#071A52] transition-all duration-300 ${
-        expanded ? "w-[260px] px-4" : "w-[92px] px-3"
+      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-[#0b287d] bg-[#071A52] shadow-2xl transition-all duration-300 ${
+        expanded ? "w-64" : "w-20"
       }`}
     >
+      {/* ── Logo & Premium Header Section ── */}
       <div
-        className={`mt-5 flex flex-col gap-4 ${expanded ? "items-start" : "items-center"}`}
+        className={`flex flex-col items-center border-b border-[#0b287d]/40 py-6 gap-4 transition-all duration-300 ${
+          expanded ? "px-5" : "px-3"
+        }`}
       >
-        <div className="flex items-center gap-3 rounded-3xl bg-white/10 p-3 shadow-inner">
-          <img
-            src={Logo}
-            alt="AP Government"
-            className="h-12 w-12 object-contain"
-          />
+        <div className="flex flex-col items-center gap-3 min-w-0">
+          <div
+            className={`flex shrink-0 items-center justify-center rounded-full bg-white p-1 shadow-2xl ring-4 ring-blue-500/20 transition-all duration-300 ${
+              expanded ? "h-16 w-16 hover:scale-105 hover:rotate-2" : "h-12 w-12 shadow-lg"
+            }`}
+          >
+            <img
+              src={Logo}
+              alt="AP Government Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
           {expanded && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">
-                Command Center
+            <div className="text-center animate-[fadeIn_0.2s_ease-out] min-w-0">
+              <p className="truncate text-xs font-black tracking-widest text-white uppercase leading-tight">
+                Government of
               </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Enterprise intelligence
+              <p className="text-xs font-black tracking-wider text-blue-300 uppercase mt-0.5 truncate">
+                Andhra Pradesh
+              </p>
+              <p className="text-[9px] font-bold text-blue-400/80 mt-1 uppercase tracking-widest truncate">
+                Welfare Portal
               </p>
             </div>
           )}
         </div>
+      </div>
 
+      {/* ── Collapse Trigger Button (Top of all icons) ── */}
+      <div className="flex justify-center py-2.5 border-b border-[#0b287d]/40 bg-blue-950/20">
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          title={expanded ? "Collapse sidebar" : "Expand sidebar"}
-          className={`rounded-full border border-white/10 bg-slate-900 text-white transition hover:bg-slate-800 ${
-            expanded
-              ? "inline-flex h-12 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold"
-              : "flex h-12 w-12 items-center justify-center"
-          }`}
+          title={expanded ? "Minimize Console" : "Maximize Console"}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-blue-300 hover:text-white hover:bg-blue-600/30 transition-all active:scale-95 shadow-sm"
         >
-          {expanded ? <ChevronLeft size={18} /> : <Menu size={18} />}
-          {expanded && <span>Collapse</span>}
+          {expanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
       </div>
 
-      <div className="mt-10 flex flex-1 flex-col gap-2 px-1">
+      {/* ── Navigation Links (Aligned correctly with best spacing) ── */}
+      <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-3.5 py-4">
         {menuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             aria-label={item.label}
-            title={expanded ? undefined : item.label}
             className={({ isActive }) =>
-              `group relative flex min-h-[56px] items-center gap-3 rounded-2xl px-3 text-sm font-medium transition-all duration-200 ${
-                expanded ? "w-full justify-start" : "w-14 justify-center"
+              `group relative flex items-center rounded-xl transition-all duration-200 ${
+                expanded ? "px-4 py-3.5 gap-3.5 w-full" : "h-12 w-12 justify-center mx-auto"
               } ${
                 isActive
-                  ? "bg-gradient-to-r from-[#2563EB] to-[#60A5FA] text-white shadow-lg"
-                  : "text-blue-200 hover:bg-white/10"
+                  ? "bg-gradient-to-r from-blue-600/35 to-blue-500/10 text-white border border-blue-500/20 shadow-lg shadow-blue-950/40"
+                  : "text-blue-200/70 hover:text-white hover:bg-white/5 border border-transparent"
               }`
             }
           >
-            <item.icon size={22} />
-            {expanded && <span className="truncate">{item.label}</span>}
-            {!expanded && (
-              <span className="pointer-events-none absolute left-full top-1/2 z-20 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-2xl bg-slate-950/95 px-3 py-2 text-sm text-white shadow-lg backdrop-blur-md group-hover:block">
-                {item.label}
-              </span>
+            {({ isActive }) => (
+              <>
+                <item.icon
+                  size={20}
+                  strokeWidth={isActive ? 2.2 : 1.8}
+                  className="shrink-0"
+                />
+                {expanded && (
+                  <span className="text-xs font-semibold tracking-wide transition-opacity duration-300">
+                    {item.label}
+                  </span>
+                )}
+
+                {/* Left Active Indicator Bar */}
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-blue-500 shadow-[0_0_8px_#3b82f6]" />
+                )}
+
+                {/* Collapsed Hover Tooltip */}
+                {!expanded && (
+                  <span className="pointer-events-none absolute left-[calc(100%+12px)] top-1/2 z-50 -translate-y-1/2 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2 text-xs font-bold text-white shadow-xl shadow-black/40">
+                    {item.label}
+                  </span>
+                )}
+              </>
             )}
           </NavLink>
         ))}
-      </div>
-
-      <div className="mt-auto mb-6 px-1">
-        <button
-          type="button"
-          onClick={handleLogout}
-          className={`flex min-h-[56px] items-center gap-3 rounded-2xl border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-blue-200 transition duration-200 hover:bg-white/10 ${
-            expanded ? "w-full justify-start" : "w-14 justify-center"
-          }`}
-        >
-          <LogOut size={22} />
-          {expanded && <span>Logout</span>}
-        </button>
-      </div>
+      </nav>
     </aside>
   );
 }

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
 function DashboardLayout() {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div
       className="
@@ -12,17 +15,17 @@ function DashboardLayout() {
         bg-[#F5F7FB]
       "
     >
-      <Sidebar />
+      <Sidebar expanded={expanded} setExpanded={setExpanded} />
 
       <div
-        className="
-          ml-[92px]
+        className={`
           flex
           h-screen
           flex-col
           transition-all
           duration-300
-        "
+          ${expanded ? "ml-64" : "ml-20"}
+        `}
       >
         <Header />
 

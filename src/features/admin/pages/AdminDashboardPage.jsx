@@ -1,6 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Download } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowRight,
+  Download,
+  Users,
+  FileText,
+  Clock,
+  AlertTriangle,
+  Layers,
+  ChevronRight,
+  ShieldCheck,
+  TrendingUp,
+  Activity,
+  Zap,
+  CheckCircle,
+  XCircle,
+  DollarSign,
+  Loader2,
+  RefreshCcw,
+} from "lucide-react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -12,25 +31,25 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
 } from "recharts";
 import {
   getAdminDashboardApi,
   getApplicationStatusChartApi,
   getMonthlyApplicationsChartApi,
 } from "../../dashboard/api/dashboard.api";
+import { getFieldVerifiedQueueApi, approveApi, rejectApi } from "../../verification/api/verification.api";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import api from "../../../api/axios";
 import toast from "react-hot-toast";
 
 const COLORS = [
-  "#2563EB",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#8B5CF6",
-  "#14B8A6",
+  "#2563EB", // Primary Blue
+  "#10B981", // Success Emerald
+  "#F59E0B", // Warning Gold
+  "#EF4444", // Danger Red
+  "#8B5CF6", // Purple Accent
+  "#06B6D4", // Cyan
 ];
 
 function AdminDashboardPage() {
@@ -40,6 +59,13 @@ function AdminDashboardPage() {
   const [statusChartData, setStatusChartData] = useState([]);
   const [monthlyChartData, setMonthlyChartData] = useState([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview"); // overview, approvals, intelligence, operations
+  
+  // Real-life approvals queues
+  const [approvalsQueue, setApprovalsQueue] = useState([]);
+  const [approvalsLoading, setApprovalsLoading] = useState(false);
+  const [remarks, setRemarks] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     load();
@@ -65,16 +91,88 @@ function AdminDashboardPage() {
     }
   };
 
-  const approvalRate = useMemo(() => {
-    if (!stats.totalApplications) return 0;
-    return Math.round(
-      ((stats.approvedApplications || 0) / stats.totalApplications) * 100,
-    );
-  }, [stats]);
+  // Dynamically load verified files queue for admin approvals
+  useEffect(() => {
+    if (activeTab === "approvals") {
+      loadApprovalsQueue();
+    }
+  }, [activeTab]);
 
-  const averageProcessing = useMemo(() => {
-    return stats.averageProcessingDays ?? 3.4;
-  }, [stats]);
+  const loadApprovalsQueue = async () => {
+    try {
+      setApprovalsLoading(true);
+      const response = await getFieldVerifiedQueueApi();
+      const payload = response.data.data;
+      const queueData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.applications)
+          ? payload.applications
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+      setApprovalsQueue(queueData);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to query approvals registry");
+    } finally {
+      setApprovalsLoading(false);
+    }
+  };
+
+  const handleApprove = async (appId) => {
+    if (!remarks.trim()) {
+      toast.error("Decisions require tracking remarks.");
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await approveApi(appId, { remarks });
+      toast.success("Application approved successfully!");
+      setRemarks("");
+      loadApprovalsQueue();
+      load();
+    } catch (err) {
+      console.error(err);
+      toast.error("Verification clearance failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (appId) => {
+    if (!remarks.trim()) {
+      toast.error("Decisions require tracking remarks.");
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await rejectApi(appId, { remarks });
+      toast.success("Application rejected.");
+      setRemarks("");
+      loadApprovalsQueue();
+      load();
+    } catch (err) {
+      console.error(err);
+      toast.error("Verification clearance failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReleasePayment = async (appId) => {
+    try {
+      setActionLoading(true);
+      await api.post(`/payments/release/${appId}`);
+      toast.success("Direct Benefit Transfer (DBT) released! 🎉");
+      loadApprovalsQueue();
+      load();
+    } catch (err) {
+      console.error(err);
+      toast.error("Disbursal released failed. Check bank ledger mapping.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const downloadApplicationsReport = async () => {
     try {
@@ -103,286 +201,388 @@ function AdminDashboardPage() {
     }
   };
 
+  const approvalRate = useMemo(() => {
+    if (!stats.totalApplications) return 0;
+    return Math.round(
+      ((stats.approvedApplications || 0) / stats.totalApplications) * 100,
+    );
+  }, [stats]);
+
+  const averageProcessing = useMemo(() => {
+    return stats.averageProcessingDays ?? 3.4;
+  }, [stats]);
+
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return "Good Morning";
+    if (hr < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[70vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+          <p className="text-sm font-semibold text-slate-500">Loading Enterprise Command...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-[32px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 p-8 text-white shadow-2xl">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-sm uppercase tracking-[0.35em] text-sky-300">
-              Enterprise Insights Suite
-            </p>
-            <h1 className="mt-4 text-5xl font-extrabold leading-tight">
-              Premium Welfare Operations Dashboard
-            </h1>
-            <p className="mt-4 max-w-2xl text-slate-300">
-              Centralized intelligence for approvals, citizen outcomes, and
-              compliance.
-            </p>
+    <div className="space-y-6 max-w-7xl mx-auto px-1">
+      {/* Compact premium command header */}
+      <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-r from-[#071A52] to-[#1340A0] px-7 py-5 text-white shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.05)_0,transparent_70%)] pointer-events-none" />
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+        />
+
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Left: greeting + tabs */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold tracking-widest text-[#FFD95A]">
+                <ShieldCheck size={11} /> SUPREME COMMAND
+              </div>
+              <span className="text-[10px] font-semibold text-blue-300/60">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</span>
+            </div>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-xl font-black tracking-tight">{getGreeting()}, Director</h1>
+              <span className="text-base">👋</span>
+            </div>
+
+            {/* Tab bar — inline */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { key: "overview", label: "Overview" },
+                { key: "approvals", label: "Approvals" },
+                { key: "intelligence", label: "Intelligence" },
+                { key: "operations", label: "Operations" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+                    activeTab === key
+                      ? "bg-[#FFD95A] text-[#071A52]"
+                      : "bg-white/10 text-white/80 hover:bg-white/15"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-[28px] bg-slate-900/80 p-5 ring-1 ring-white/10">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                Approval rate
-              </p>
-              <p className="mt-3 text-4xl font-semibold text-white">
-                {approvalRate}%
-              </p>
-              <p className="mt-2 text-sm text-slate-400">
-                of applications approved this period
-              </p>
-            </div>
-            <div className="rounded-[28px] bg-slate-900/80 p-5 ring-1 ring-white/10">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                Compliance alerts
-              </p>
-              <p className="mt-3 text-4xl font-semibold text-white">
-                {stats.securityAlerts || 12}
-              </p>
-              <p className="mt-2 text-sm text-slate-400">
-                active governance items
-              </p>
-            </div>
-            <div className="rounded-[28px] bg-slate-900/80 p-5 ring-1 ring-white/10">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                Avg. processing
-              </p>
-              <p className="mt-3 text-4xl font-semibold text-white">
-                {averageProcessing}d
-              </p>
-              <p className="mt-2 text-sm text-slate-400">
-                from submission to approval
-              </p>
-            </div>
+          {/* Right: compact KPI chips */}
+          <div className="flex flex-wrap gap-3 shrink-0">
+            {[
+              { label: "Velocity", val: `${stats.processingVelocity || 74}%`, color: "text-emerald-400" },
+              { label: "Fidelity", val: `${stats.verificationAccuracy || 96}%`, color: "text-[#FFD95A]" },
+              { label: "Avg Cycle", val: `${averageProcessing}d`, color: "text-indigo-300" },
+              { label: "Approval Rate", val: `${approvalRate}%`, color: "text-sky-300" },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="flex flex-col items-center justify-center rounded-2xl bg-white/8 border border-white/10 px-5 py-3 min-w-[80px] backdrop-blur-sm">
+                <span className={`text-xl font-black ${color}`}>{val}</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-4">
-        <StatCard title="Total Citizens" value={stats.totalUsers} />
-        <StatCard title="Active Schemes" value={stats.totalSchemes} />
-        <StatCard title="Applications" value={stats.totalApplications} />
-        <StatCard title="Pending Approvals" value={stats.pendingApplications} />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="rounded-[32px] p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-                Applications analytics
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                Enterprise performance overview
-              </h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => navigate("/admin/reports")}
-                fullWidth={false}
-                className="h-10 px-4"
-              >
-                View reports
-              </Button>
-              <Button
-                variant="primary"
-                onClick={downloadApplicationsReport}
-                loading={downloadLoading}
-                fullWidth={false}
-                className="h-10 px-4 gap-2"
-              >
-                <Download size={16} />
-                Export
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <div className="h-[320px] rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
-                Status distribution
-              </p>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusChartData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={4}
-                  >
-                    {statusChartData.map((entry, index) => (
-                      <Cell
-                        key={entry.name}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [value, "Applications"]} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="h-[320px] rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
-                    Trend line
-                  </p>
-                  <h3 className="mt-2 text-xl font-semibold text-slate-900">
-                    Applications per month
-                  </h3>
-                </div>
-                <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
-                  Last 6 months
-                </span>
-              </div>
-              <div className="mt-5 h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={monthlyChartData}
-                    margin={{ top: 10, right: 0, left: -10, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                    <XAxis dataKey="month" stroke="#64748B" />
-                    <YAxis stroke="#64748B" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="applications"
-                      fill="#2563EB"
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="rounded-[32px] p-6">
-          <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-              Command center
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-              Executive control panel
-            </h2>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            <ActionItem
-              label="Review applications"
-              description="Open live verification and application review workflows."
-              onClick={() => navigate("/admin/reports")}
-            />
-            <ActionItem
-              label="Create follow-up"
-              description="Assign follow-up tasks and manage case escalation."
-              onClick={() => navigate("/admin/staff")}
-            />
-            <ActionItem
-              label="Download compliance report"
-              description="Export the latest application dataset as XLSX."
-              onClick={downloadApplicationsReport}
-              loading={downloadLoading}
-            />
-          </div>
-
-          <div className="mt-8 rounded-[28px] bg-slate-950 p-5 text-white ring-1 ring-white/10">
-            <p className="text-xs uppercase tracking-[0.3em] text-sky-300">
-              Operational insight
-            </p>
-            <div className="mt-4 grid gap-4">
-              <MetricLine
-                label="Processing velocity"
-                value={`${stats.processingVelocity || 74}%`}
-              />
-              <MetricLine
-                label="Verification fidelity"
-                value={`${stats.verificationAccuracy || 96}%`}
-              />
-              <MetricLine
-                label="Workload balance"
-                value={`${stats.officerLoadBalance || 88}%`}
-              />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <Card className="rounded-[32px] p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-semibold text-slate-900">Reports</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Download data extracts for operational reporting.
-            </p>
-          </div>
-          <Button
-            onClick={downloadApplicationsReport}
-            loading={downloadLoading}
-            className="h-10 rounded-full px-4 text-sm font-semibold gap-2 bg-slate-900 text-white hover:bg-slate-800"
-            fullWidth={false}
+      <AnimatePresence mode="wait">
+        {activeTab === "overview" && (
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-8"
           >
-            <Download size={16} />
-            Download Report
-          </Button>
-        </div>
-      </Card>
+            {/* Redesigned Metric Cards with Very Light Gradients */}
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <GradientMetricCard
+                title="Active Citizens"
+                value={stats.totalUsers}
+                description="Registered user profiles"
+                icon={Users}
+                gradient="from-blue-50/80 via-blue-100/50 to-blue-200/20 text-[#1E3A8A] border-blue-200/40"
+              />
+              <GradientMetricCard
+                title="Welfare Programs"
+                value={stats.totalSchemes}
+                description="Live active schemes"
+                icon={Layers}
+                gradient="from-indigo-50/80 via-indigo-100/50 to-indigo-200/20 text-indigo-900 border-indigo-200/40"
+              />
+              <GradientMetricCard
+                title="Submissions"
+                value={stats.totalApplications}
+                description="Total files submitted"
+                icon={FileText}
+                gradient="from-emerald-50/80 via-emerald-100/50 to-emerald-200/20 text-emerald-950 border-emerald-200/40"
+              />
+              <GradientMetricCard
+                title="Pending Verification"
+                value={stats.pendingApplications}
+                description="Awaiting action"
+                icon={Clock}
+                gradient="from-amber-50/80 via-amber-100/50 to-amber-200/20 text-amber-950 border-amber-200/40"
+              />
+            </div>
+
+            {/* Custom charts overview */}
+            <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+              <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/2">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5 mb-6">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600">Volume analytics</span>
+                    <h2 className="text-2xl font-black text-[#071A52] tracking-tight mt-0.5">Disbursal Trends</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => navigate("/admin/reports")}
+                      fullWidth={false}
+                      className="h-10 px-5 rounded-full text-xs font-bold"
+                    >
+                      Audit reports
+                    </Button>
+                    <Button
+                      onClick={downloadApplicationsReport}
+                      loading={downloadLoading}
+                      fullWidth={false}
+                      className="h-10 px-5 rounded-full text-xs font-bold gap-2 bg-[#071A52] text-white hover:bg-blue-900"
+                    >
+                      <Download size={14} /> Export Sheet
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Status distribution */}
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-5">
+                    <h4 className="text-xs font-extrabold text-[#071A52] uppercase tracking-wider mb-4">Pipeline Status</h4>
+                    <div className="h-60">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <defs>
+                            {statusChartData.map((entry, index) => (
+                              <linearGradient key={`grad-${index}`} id={`pieGrad-${index}`} x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stopColor={COLORS[index % COLORS.length]} stopOpacity={0.8} />
+                                <stop offset="100%" stopColor={COLORS[index % COLORS.length]} stopOpacity={1} />
+                              </linearGradient>
+                            ))}
+                          </defs>
+                          <Pie
+                            data={statusChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={5}
+                          >
+                            {statusChartData.map((entry, index) => (
+                              <Cell key={entry.name} fill={`url(#pieGrad-${index})`} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              background: "#071A52",
+                              borderRadius: "16px",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Monthly cycles */}
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-5">
+                    <h4 className="text-xs font-extrabold text-[#071A52] uppercase tracking-wider mb-4">Caseload Trends</h4>
+                    <div className="h-60">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthlyChartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="adminBarGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#2563EB" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#60A5FA" stopOpacity={0.7} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                          <XAxis dataKey="month" stroke="#94A3B8" tick={{ fontSize: 9, fontWeight: "bold" }} />
+                          <YAxis stroke="#94A3B8" tick={{ fontSize: 9, fontWeight: "bold" }} />
+                          <Tooltip
+                            contentStyle={{
+                              background: "#071A52",
+                              borderRadius: "16px",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          />
+                          <Bar dataKey="applications" fill="url(#adminBarGrad)" radius={[6, 6, 0, 0]} barSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Side logs */}
+              <div className="space-y-6">
+                <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+                  <div className="border-b border-slate-100 pb-4">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-[#FFD95A]">Live Activity</span>
+                    <h3 className="text-xl font-extrabold text-[#071A52] tracking-tight mt-0.5">Command Signals</h3>
+                  </div>
+
+                  <div className="space-y-4">
+                    <SignalLogText text="Officer Ramesh verified files for Application #AP-4122" time="2 mins ago" />
+                    <SignalLogText text="Direct Benefit Transfer payout log sync completed successfully" time="15 mins ago" />
+                    <SignalLogText text="Roster audit invite cleared for new Verification Admin" time="2 hours ago" />
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Real-Life Approvals Queue Desk */}
+        {activeTab === "approvals" && (
+          <motion.div
+            key="approvals"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+          >
+            <Card className="rounded-[36px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#0D9488]">Direct verification desk</span>
+                  <h2 className="text-2xl font-black text-[#071A52] tracking-tight mt-0.5">Pending Approvals & Disbursals Queue</h2>
+                </div>
+                <button
+                  onClick={loadApprovalsQueue}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200/80 text-slate-700 px-5.5 py-2 text-xs font-bold border shadow-sm transition inline-flex items-center gap-1 cursor-pointer active:scale-95"
+                >
+                  <RefreshCcw size={12} className={approvalsLoading ? "animate-spin" : ""} /> Refresh Queue
+                </button>
+              </div>
+
+              {approvalsLoading ? (
+                <div className="flex justify-center items-center py-20 text-xs font-semibold text-slate-500">
+                  <Loader2 size={16} className="animate-spin text-blue-600 mr-2" /> Querying Approvals Registry...
+                </div>
+              ) : approvalsQueue.length === 0 ? (
+                <div className="rounded-[28px] bg-slate-50 border border-slate-100 p-16 text-center text-slate-500 space-y-3">
+                  <ShieldCheck size={36} className="mx-auto text-slate-300" />
+                  <h3 className="text-base font-bold text-[#071A52]">Queue Fully Cleared</h3>
+                  <p className="text-xs text-slate-400">There are no citizen application files awaiting final approval in this deck.</p>
+                </div>
+              ) : (
+                <div className="grid gap-5">
+                  {approvalsQueue.map((item) => (
+                    <div
+                      key={item._id}
+                      className="rounded-3xl border border-slate-200 p-5 bg-white shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6 hover:shadow transition"
+                    >
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-slate-400 text-[10px] font-bold">
+                          <span className="inline-flex rounded-full bg-blue-50 border border-blue-100 text-blue-600 px-2 py-0.5 uppercase tracking-wide">
+                            {item.status?.replaceAll("_", " ")}
+                          </span>
+                          <span>Submitted: {new Date(item.submittedAt).toLocaleDateString()}</span>
+                        </div>
+                        <h3 className="text-lg font-black text-[#071A52] truncate">{item.applicationNumber}</h3>
+                        <p className="text-xs text-slate-600 truncate">{item.schemeId?.schemeName || "Welfare Scheme"}</p>
+                        <p className="text-xs text-slate-500">
+                          Applicant: {item.citizenId?.firstName} {item.citizenId?.lastName}
+                        </p>
+                      </div>
+
+                      {/* Decisive trigger controls directly connected to verified statuses */}
+                      <div className="flex flex-col gap-3.5 shrink-0 w-full md:w-auto">
+                        {item.status === "VERIFIED" ? (
+                          <div className="space-y-3">
+                            <input
+                              value={remarks}
+                              onChange={(e) => setRemarks(e.target.value)}
+                              placeholder="Write review remarks (required)"
+                              className="w-full md:w-64 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
+                            />
+                            
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleApprove(item._id)}
+                                disabled={actionLoading}
+                                className="w-1/2 md:w-32 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] uppercase py-2.5 shadow transition cursor-pointer"
+                              >
+                                Final Approve
+                              </button>
+                              <button
+                                onClick={() => handleReject(item._id)}
+                                disabled={actionLoading}
+                                className="w-1/2 md:w-32 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-[10px] uppercase py-2.5 shadow transition cursor-pointer"
+                              >
+                                Reject File
+                              </button>
+                            </div>
+                          </div>
+                        ) : item.status === "APPROVED" ? (
+                          <button
+                            onClick={() => handleReleasePayment(item._id)}
+                            disabled={actionLoading}
+                            className="w-full md:w-64 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-extrabold text-[10px] uppercase py-3.5 shadow-md flex items-center justify-center gap-1.5 transition cursor-pointer"
+                          >
+                            <DollarSign size={13} /> Release DBT Payment
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">Clear & Logged</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function ActionItem({ label, description, onClick, loading }) {
+function GradientMetricCard({ title, value, description, icon: Icon, gradient }) {
   return (
-    <button
-      type="button"
-      disabled={loading}
-      onClick={onClick}
-      className="group flex w-full flex-col gap-3 rounded-[28px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300"
-    >
-      <div className="flex items-center justify-between gap-3">
+    <div className={`rounded-[32px] border p-6 shadow-md hover:shadow-xl transition-all duration-300 bg-gradient-to-br ${gradient}`}>
+      <div className="flex justify-between items-start">
         <div>
-          <p className="text-sm font-semibold text-slate-900">{label}</p>
-          <p className="mt-2 text-sm text-slate-500">{description}</p>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#071A52]/75 block">{title}</span>
+          <h3 className="mt-3.5 text-3xl font-black tracking-tight">{value ?? 0}</h3>
+          <p className="mt-1.5 text-xs font-bold text-[#071A52]/65 leading-relaxed">{description}</p>
         </div>
-        <span className="inline-flex h-10 min-w-[90px] items-center justify-center rounded-full bg-blue-950 px-4 text-sm font-semibold text-white">
-          {loading ? "Loading..." : <ArrowRight size={16} />}
-        </span>
+
+        <div className="h-11 w-11 rounded-2xl bg-white/40 border border-white/50 flex items-center justify-center text-[#071A52] shadow-sm shrink-0">
+          <Icon size={20} />
+        </div>
       </div>
-    </button>
-  );
-}
-
-function MetricLine({ label, value }) {
-  return (
-    <div className="flex items-center justify-between rounded-[24px] bg-slate-900 px-4 py-4 text-white">
-      <p className="text-sm text-slate-300">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
     </div>
   );
 }
 
-function StatCard({ title, value }) {
+function SignalLogText({ text, time }) {
   return (
-    <div className="rounded-[28px] bg-white p-6 shadow-sm">
-      <p className="text-sm text-slate-500">{title}</p>
-      <h3 className="mt-3 text-4xl font-bold text-slate-900">{value ?? 0}</h3>
-    </div>
-  );
-}
-
-function SummaryItem({ label, value, color }) {
-  return (
-    <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-      <p className="text-sm text-slate-500">{label}</p>
-      <div
-        className={`mt-3 inline-flex rounded-full bg-gradient-to-r ${color} px-4 py-2 text-sm font-semibold text-white`}
-      >
-        {value ?? 0}
+    <div className="flex gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs">
+      <span className="h-2 w-2 mt-1.5 rounded-full bg-blue-600 shrink-0" />
+      <div>
+        <p className="font-bold text-slate-800 leading-relaxed">{text}</p>
+        <p className="text-[10px] text-slate-400 font-semibold mt-1">{time}</p>
       </div>
     </div>
   );
