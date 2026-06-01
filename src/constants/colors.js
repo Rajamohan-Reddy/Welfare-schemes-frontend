@@ -1,0 +1,23 @@
+export const COLORS = {
+  PRIMARY: "#1E3A8A",
+
+  SECONDARY: "#2563EB",
+
+  ACCENT: "#14B8A6",
+
+  SUCCESS: "#10B981",
+
+  WARNING: "#F59E0B",
+
+  DANGER: "#EF4444",
+
+  BACKGROUND: "#F6F8FC",
+
+  SURFACE: "#FFFFFF",
+
+  TEXT_PRIMARY: "#0F172A",
+
+  TEXT_SECONDARY: "#64748B",
+
+  SIDEBAR: "#0F172A",
+};
