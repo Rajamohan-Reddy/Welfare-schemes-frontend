@@ -34,6 +34,13 @@ const reportOptions = [
 
 function AdminReportsPage() {
   const reportCards = useMemo(() => reportOptions, []);
+  const badgeClasses = [
+    "bg-sky-50 text-sky-700",
+    "bg-emerald-50 text-emerald-700",
+    "bg-amber-50 text-amber-700",
+    "bg-violet-50 text-violet-700",
+    "bg-rose-50 text-rose-700",
+  ];
 
   const downloadReport = (report) => {
     const csvContent = [
@@ -96,16 +103,16 @@ function AdminReportsPage() {
               </div>
             </div>
 
-            <div className="grid gap-2 rounded-[24px] bg-slate-50 p-4 text-sm text-slate-700">
+            <div className="grid gap-3 rounded-[24px] bg-slate-50 p-4 text-sm text-slate-700">
               <div className="flex items-center justify-between font-semibold text-slate-800">
-                <span>Columns</span>
-                <span>{report.headers.length}</span>
+                <span>Report details</span>
+                <span>{report.rows.length.toLocaleString()} rows</span>
               </div>
-              <div className="grid gap-1">
-                {report.headers.map((header) => (
+              <div className="flex flex-wrap gap-2">
+                {report.headers.map((header, index) => (
                   <span
                     key={header}
-                    className="rounded-2xl bg-white px-3 py-2 shadow-sm"
+                    className={`rounded-full px-3 py-2 text-xs font-semibold shadow-sm ${badgeClasses[index % badgeClasses.length]}`}
                   >
                     {header}
                   </span>

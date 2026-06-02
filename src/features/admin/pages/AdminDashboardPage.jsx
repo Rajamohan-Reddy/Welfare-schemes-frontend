@@ -83,10 +83,19 @@ function AdminDashboardPage() {
     benefitType: "",
     startDate: "",
     endDate: "",
+    media: {
+      bannerImage: "",
+      thumbnailImage: "",
+    },
+  });
+  const [schemeMediaFiles, setSchemeMediaFiles] = useState({
+    bannerImage: null,
+    thumbnailImage: null,
   });
   const [categoryForm, setCategoryForm] = useState({
     categoryCode: "",
     categoryName: "",
+    description: "",
   });
 
   useEffect(() => {
@@ -165,8 +174,13 @@ function AdminDashboardPage() {
       benefitType: "",
       startDate: "",
       endDate: "",
+      media: {
+        bannerImage: "",
+        thumbnailImage: "",
+      },
     });
-    setCategoryForm({ categoryCode: "", categoryName: "" });
+    setSchemeMediaFiles({ bannerImage: null, thumbnailImage: null });
+    setCategoryForm({ categoryCode: "", categoryName: "", description: "" });
     setOperationErrors({});
     setOperationSubmitting(false);
     setOperationType(null);
@@ -207,6 +221,19 @@ function AdminDashboardPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const uploadMediaFile = async (file) => {
+    if (!file) return null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await api.post("/uploads/single", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return response.data.data?.fileUrl || response.data.data?.url || null;
+  };
+
   const benefitTypeOptions = [
     { value: "DIRECT_BENEFIT_TRANSFER", label: "Direct Benefit Transfer" },
     { value: "PENSION", label: "Pension" },
@@ -243,10 +270,26 @@ function AdminDashboardPage() {
       setOperationSubmitting(true);
 
       if (operationType === "scheme") {
-        await createSchemeApi({
+        const payload = {
           ...schemeForm,
           categoryId: schemeForm.categoryId,
-        });
+        };
+
+        if (schemeMediaFiles.bannerImage) {
+          const bannerUrl = await uploadMediaFile(schemeMediaFiles.bannerImage);
+          if (bannerUrl) payload.media = { ...payload.media, bannerImage: bannerUrl };
+        }
+
+        if (schemeMediaFiles.thumbnailImage) {
+          const thumbnailUrl = await uploadMediaFile(schemeMediaFiles.thumbnailImage);
+          if (thumbnailUrl) payload.media = { ...payload.media, thumbnailImage: thumbnailUrl };
+        }
+
+        if (payload.media?.bannerImage === "" && payload.media?.thumbnailImage === "") {
+          delete payload.media;
+        }
+
+        await createSchemeApi(payload);
         toast.success("Scheme created successfully.");
         load();
       }
@@ -255,6 +298,7 @@ function AdminDashboardPage() {
         await createSchemeCategoryApi({
           categoryCode: categoryForm.categoryCode,
           categoryName: categoryForm.categoryName,
+          description: categoryForm.description,
         });
         toast.success("Scheme category created successfully.");
         await loadCategories();
@@ -761,7 +805,7 @@ function AdminDashboardPage() {
 
       {operationModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-2xl h-[calc(100vh-4rem)] overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200 flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-slate-50/50">
               <div>
                 <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Program Command Registry</span>
@@ -778,7 +822,7 @@ function AdminDashboardPage() {
               </button>
             </div>
 
-            <form onSubmit={handleOperationSubmit} className="space-y-4 p-6">
+            <form onSubmit={handleOperationSubmit} className="space-y-4 p-6 overflow-y-auto h-full min-h-0">
               {operationType === "scheme" ? (
                 <div className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -880,6 +924,33 @@ function AdminDashboardPage() {
                     />
                     {operationErrors.description && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.description}</p>}
                   </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Banner Image</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setSchemeMediaFiles({ ...schemeMediaFiles, bannerImage: e.target.files[0] || null })}
+                        className="w-full rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-800 outline-none transition"
+                      />
+                      {schemeMediaFiles.bannerImage && (
+                        <p className="text-[10px] text-slate-500">Selected: {schemeMediaFiles.bannerImage.name}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thumbnail Image</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setSchemeMediaFiles({ ...schemeMediaFiles, thumbnailImage: e.target.files[0] || null })}
+                        className="w-full rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-800 outline-none transition"
+                      />
+                      {schemeMediaFiles.thumbnailImage && (
+                        <p className="text-[10px] text-slate-500">Selected: {schemeMediaFiles.thumbnailImage.name}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -904,6 +975,16 @@ function AdminDashboardPage() {
                       />
                       {operationErrors.categoryName && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.categoryName}</p>}
                     </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Description</label>
+                    <textarea
+                      value={categoryForm.description}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                      placeholder="Optional summary for the category"
+                      className="w-full min-h-[100px] rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition border-slate-200"
+                    />
                   </div>
                 </div>
               )}

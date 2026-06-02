@@ -97,13 +97,6 @@ function Header() {
     });
   };
 
-  const getGreeting = () => {
-    const hr = new Date().getHours();
-    if (hr < 12) return "Good Morning";
-    if (hr < 17) return "Good Afternoon";
-    return "Good Evening";
-  };
-
   return (
     <header className="sticky top-0 z-40 border-b border-[#0b287d] bg-[#071A52] backdrop-blur-xl text-white shadow-md">
       <div className="w-full flex items-center justify-between gap-6 px-6 py-4.5 lg:py-5">
@@ -112,9 +105,9 @@ function Header() {
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-300/80 leading-none">
             Government of Andhra Pradesh
           </p>
-          <div className="mt-2 flex items-center gap-3">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <h1 className="text-xl font-black text-white tracking-tight truncate leading-none">
-              {getGreeting()}, {user?.firstName || "User"} 👋
+              {user?.firstName ? `${user.firstName}'s dashboard` : "Citizen console"}
             </h1>
             <span className="hidden sm:inline-flex rounded-full bg-blue-500/20 border border-blue-400/30 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-200 shrink-0 shadow-sm shadow-blue-900/30">
               {user?.role?.replaceAll("_", " ")}

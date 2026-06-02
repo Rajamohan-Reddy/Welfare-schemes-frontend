@@ -11,6 +11,8 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
+  DollarSign,
 } from "lucide-react";
 
 import { NavLink } from "react-router-dom";
@@ -27,6 +29,8 @@ function Sidebar({ expanded, setExpanded }) {
     if (user.role === "ADMIN") {
       return [
         { label: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard" },
+        { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
+        { label: "Payments", icon: DollarSign, path: "/admin/payments" },
         { label: "Operations", icon: Users, path: "/admin/staff" },
         { label: "Intelligence", icon: FileText, path: "/admin/reports" },
         { label: "Alerts", icon: Bell, path: "/admin/notifications" },

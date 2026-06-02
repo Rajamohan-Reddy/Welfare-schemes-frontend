@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getApplicationByIdApi } from "../api/applications.api";
+import { getUser } from "../../../utils/storage";
 import Card from "../../../components/ui/Card";
 
 function ApplicationTrackingPage() {
@@ -125,25 +126,50 @@ function ApplicationTrackingPage() {
     }
   }, [application?.status]);
 
-  const statusSteps = [
-    "SUBMITTED",
-    "UNDER_VERIFICATION",
-    "VERIFIED",
-    "APPROVED",
-    "BENEFIT_DISBURSED",
-  ];
+  const user = getUser();
 
-  const currentStep = statusSteps.indexOf(application?.status);
-
-  const progressMap = {
-    SUBMITTED: 20,
-    UNDER_VERIFICATION: 45,
-    VERIFIED: 70,
-    APPROVED: 90,
-    BENEFIT_DISBURSED: 100,
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
   };
 
-  const progress = progressMap[application?.status] || 0;
+  const normalizeStatus = (status) => {
+    const aliases = {
+      UNDER_VERIFICATION: "DOCUMENT_VERIFIED",
+      VERIFIED: "FIELD_VERIFIED",
+      PAYMENT_PENDING: "APPROVED",
+    };
+
+    return aliases[status] || status;
+  };
+
+  const getTimelineSteps = (status) => {
+    const base = ["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED"];
+    if (status === "REJECTED") return ["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "REJECTED"];
+    if (status === "BENEFIT_DISBURSED") return [...base, "BENEFIT_DISBURSED"];
+    return base;
+  };
+
+  const currentStatus = normalizeStatus(application?.status);
+  const statusSteps = getTimelineSteps(currentStatus);
+  const currentStep = statusSteps.indexOf(currentStatus);
+  const progress = currentStep >= 0 ? Math.round(((currentStep + 1) / statusSteps.length) * 100) : 0;
+
+  const stageLabel = (status) => {
+    const labels = {
+      SUBMITTED: "Application Submitted",
+      DOCUMENT_VERIFIED: "Documents Verified",
+      FIELD_VERIFIED: "Field Verification",
+      APPROVED: "Approval Complete",
+      BENEFIT_DISBURSED: "Benefit Disbursed",
+      REJECTED: "Application Rejected",
+    };
+
+    const normalized = normalizeStatus(status);
+    return labels[normalized] || normalized.replaceAll("_", " ");
+  };
 
   if (loading) {
     return (
@@ -185,54 +211,51 @@ function ApplicationTrackingPage() {
       </button>
 
       {/* Hero tracking banner */}
-      <section className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-[#071A52] via-[#0F4C81] to-[#2563EB] p-8 text-white shadow-2xl">
-        <div className="absolute top-0 right-0 h-full w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06)_0,transparent_100%)] pointer-events-none" />
-        <div className="absolute bottom-[-60px] left-10 h-32 w-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+      <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#1E40AF] p-6 sm:p-7 text-white shadow-2xl">
+        <div className="absolute inset-y-0 right-0 w-1/4 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08)_0,transparent_80%)] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-4 max-w-xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase border border-white/20 bg-white/10 tracking-wider">
-              <Sparkles size={12} className="text-[#FFD95A]" /> REAL-TIME TIMELINE TRACKER
+        <div className="relative z-10 grid gap-5 lg:grid-cols-[1.8fr_1fr] lg:items-center">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">
+              <Sparkles size={12} className="text-[#FACC15]" /> Application Tracker
             </span>
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-              {application.applicationNumber}
-            </h1>
-            <p className="text-sm leading-relaxed text-blue-100/90 max-w-xl">
-              Track verification updates, document validation checkpoints, and final benefit disbursals securely.
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-black tracking-tight">{getGreeting()}, {user?.firstName || "Citizen"}</h1>
+              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-200">
+                {progress}% Complete
+              </span>
+            </div>
+            <p className="max-w-2xl text-sm leading-relaxed text-slate-300">
+              {stageLabel(application?.status)} — your verification status is shown here with live update support.
             </p>
 
-            <div className="grid gap-4 sm:grid-cols-2 pt-2">
-              <div className="rounded-2xl bg-slate-900/60 border border-white/10 p-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Submitted Date</span>
-                <span className="text-sm font-bold mt-1 block">{new Date(application.submittedAt).toLocaleDateString()}</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-3">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Current stage</p>
+                <p className="mt-2 text-sm font-bold text-white">{stageLabel(application?.status)}</p>
               </div>
-              <div className="rounded-2xl bg-slate-900/60 border border-white/10 p-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Last Registry Sync</span>
-                <span className="text-sm font-bold mt-1 block">
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-3">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Last update</p>
+                <p className="mt-2 text-sm font-bold text-white">
                   {new Date(application.updatedAt || application.approvedAt || application.submittedAt).toLocaleDateString()}
-                </span>
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Interactive progress wheel */}
-          <div className="w-full lg:w-[42%] rounded-3xl bg-white/5 border border-white/10 p-6 shadow-inner backdrop-blur-md">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Processing Stage</span>
-              <span className="text-xs font-bold text-[#FFD95A]">{progress}% Done</span>
+          <div className="rounded-[28px] border border-white/10 bg-white/10 p-4 shadow-inner backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Processing stage</p>
+            <p className="mt-2 text-sm font-bold text-white">{stageLabel(application?.status)}</p>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#FACC15] to-[#EAB308] transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
-            
-            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#FFD95A]" style={{ width: `${progress}%` }} />
-            </div>
-
-            <div className="mt-4 flex items-center justify-between gap-3 bg-slate-950/40 rounded-2xl px-4 py-3 text-xs font-bold uppercase border border-white/5">
-              <span className="truncate">{application.status.replaceAll("_", " ")}</span>
+            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-200">
+              <span>{progress}% complete</span>
               <button
                 onClick={loadApplication}
-                className="rounded-full bg-white text-[#071A52] px-3.5 py-1 text-[10px] font-extrabold hover:bg-slate-100 transition shrink-0"
+                className="rounded-full bg-white/10 px-3 py-1 text-white transition hover:bg-white/20"
               >
-                Refresh Log
+                Refresh
               </button>
             </div>
           </div>
@@ -274,7 +297,7 @@ function ApplicationTrackingPage() {
             {statusSteps.map((step, index) => (
               <TimelineTrackerItem
                 key={step}
-                title={step}
+                title={stageLabel(step)}
                 completed={index <= currentStep}
                 current={index === currentStep}
                 last={index === statusSteps.length - 1}
@@ -349,7 +372,6 @@ function TimelineTrackerItem({ title, completed, current, last }) {
 
   return (
     <div className="relative flex items-start gap-4">
-      {/* Connector line */}
       {!last && (
         <span className={`absolute left-5.5 top-11 h-6 w-[2px] ${completed ? "bg-emerald-500" : "bg-slate-200"}`} />
       )}
@@ -365,7 +387,7 @@ function TimelineTrackerItem({ title, completed, current, last }) {
       </div>
 
       <div className="pt-2">
-        <h3 className="text-sm font-extrabold text-[#071A52]">{title.replaceAll("_", " ")}</h3>
+        <h3 className="text-sm font-extrabold text-[#071A52]">{title}</h3>
         <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-widest">
           {completed ? "Completed Checkpoint" : current ? "Current Verification Stage" : "Scheduled Checkpoint"}
         </p>

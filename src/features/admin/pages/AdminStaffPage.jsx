@@ -601,25 +601,27 @@ function AdminStaffPage() {
                 </div>
               ) : (
                 categories.map((category) => (
-                  <div key={category._id} className="rounded-3xl border border-slate-200/80 p-4 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div key={category._id} className="rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-4 shadow-sm transition hover:shadow-md flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-bold text-[#071A52]">{category.categoryName}</p>
+                      <p className="text-sm font-black text-[#071A52]">{category.categoryName}</p>
                       <p className="text-[11px] text-slate-500 uppercase tracking-[0.18em] mt-1">{category.categoryCode}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleEditCategory(category)}
-                        className="rounded-full bg-white border border-slate-200 text-slate-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-slate-100 transition"
+                        title="Edit category"
+                        className="h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center hover:bg-slate-100 transition"
                       >
-                        <Edit size={12} /> Edit
+                        <Edit size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteCategory(category)}
-                        className="rounded-full bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-red-100 transition"
+                        title="Delete category"
+                        className="h-9 w-9 rounded-full border border-red-200 bg-red-50 text-red-700 flex items-center justify-center hover:bg-red-100 transition"
                       >
-                        <Trash2 size={12} /> Delete
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
@@ -646,9 +648,9 @@ function AdminStaffPage() {
                 </div>
               ) : (
                 schemes.map((scheme) => (
-                  <div key={scheme._id} className="rounded-3xl border border-slate-200/80 p-4 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div key={scheme._id} className="rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-4 shadow-sm transition hover:shadow-md flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-bold text-[#071A52]">{scheme.schemeName}</p>
+                      <p className="text-sm font-black text-[#071A52]">{scheme.schemeName}</p>
                       <p className="text-[11px] text-slate-500 uppercase tracking-[0.18em] mt-1">
                         {scheme.schemeCode} • {scheme.benefitType || "Benefit type missing"}
                       </p>
@@ -658,16 +660,18 @@ function AdminStaffPage() {
                       <button
                         type="button"
                         onClick={() => handleEditScheme(scheme)}
-                        className="rounded-full bg-white border border-slate-200 text-slate-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-slate-100 transition"
+                        title="Edit scheme"
+                        className="h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center hover:bg-slate-100 transition"
                       >
-                        <Edit size={12} /> Edit
+                        <Edit size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteScheme(scheme)}
-                        className="rounded-full bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-red-100 transition"
+                        title="Delete scheme"
+                        className="h-9 w-9 rounded-full border border-red-200 bg-red-50 text-red-700 flex items-center justify-center hover:bg-red-100 transition"
                       >
-                        <Trash2 size={12} /> Delete
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
@@ -810,7 +814,7 @@ function AdminStaffPage() {
 
       {schemeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-2xl h-[calc(100vh-4rem)] overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200 flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-slate-50/50">
               <div>
                 <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Scheme Management</span>
@@ -827,7 +831,7 @@ function AdminStaffPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitScheme} className="space-y-4 p-6">
+            <form onSubmit={handleSubmitScheme} className="space-y-4 p-6 overflow-y-auto h-full min-h-0">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scheme Code</label>
@@ -947,47 +951,56 @@ function AdminStaffPage() {
 
       {categoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-slate-50/50">
-              <div>
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Category Management</span>
-                <h2 className="mt-1 text-base font-black text-[#071A52]">
-                  {selectedCategory ? "Update Category" : "Create Category"}
-                </h2>
+          <div className="w-full max-w-md overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-50 via-white to-slate-100 border border-slate-200/70 shadow-[0_30px_80px_rgba(15,23,42,0.12)] animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-6 text-center bg-white/90 border-b border-slate-200">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400 mb-2">Category Quick Add</p>
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <span className="h-3 w-3 rounded-full bg-[#0F172A]" />
+                <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Minimal form</span>
               </div>
-              <button
-                type="button"
-                onClick={closeCategoryModal}
-                className="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
-              >
-                <X size={16} />
-              </button>
+              <h2 className="text-2xl font-black tracking-tight text-[#0F172A]">
+                {selectedCategory ? "Update Category" : "Create Category"}
+              </h2>
+              <p className="mt-2 text-xs text-slate-500 max-w-sm mx-auto">
+                Just three compact fields to keep category setup fast, friendly and readable.
+              </p>
             </div>
 
-            <form onSubmit={handleSubmitCategory} className="space-y-4 p-6">
+            <form onSubmit={handleSubmitCategory} className="space-y-5 p-6">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Code</label>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Category Code</label>
                 <input
                   value={categoryForm.categoryCode}
                   onChange={(e) => setCategoryForm({ ...categoryForm, categoryCode: e.target.value })}
                   placeholder="EX: SOCIAL-WELFARE"
-                  className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${categoryErrors.categoryCode ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  className={`w-full rounded-[24px] border px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition ${categoryErrors.categoryCode ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-white"}`}
                 />
-                {categoryErrors.categoryCode && <p className="text-[10px] text-red-500 font-semibold">{categoryErrors.categoryCode}</p>}
+                {categoryErrors.categoryCode && <p className="text-xs text-red-500 mt-1">{categoryErrors.categoryCode}</p>}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Name</label>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Category Name</label>
                 <input
                   value={categoryForm.categoryName}
                   onChange={(e) => setCategoryForm({ ...categoryForm, categoryName: e.target.value })}
                   placeholder="Enter category label"
-                  className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${categoryErrors.categoryName ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  className={`w-full rounded-[24px] border px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition ${categoryErrors.categoryName ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-white"}`}
                 />
-                {categoryErrors.categoryName && <p className="text-[10px] text-red-500 font-semibold">{categoryErrors.categoryName}</p>}
+                {categoryErrors.categoryName && <p className="text-xs text-red-500 mt-1">{categoryErrors.categoryName}</p>}
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Category Description</label>
+                <textarea
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                  placeholder="Optional description"
+                  className={`w-full min-h-[110px] rounded-[24px] border px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition ${categoryErrors.description ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-white"}`}
+                />
+                {categoryErrors.description && <p className="text-xs text-red-500 mt-1">{categoryErrors.description}</p>}
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={closeCategoryModal}
@@ -998,7 +1011,7 @@ function AdminStaffPage() {
                 <button
                   type="submit"
                   disabled={savingCategory}
-                  className="rounded-full bg-[#071A52] hover:bg-blue-900 text-white px-5 py-2 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-md shadow-blue-950/10 cursor-pointer"
+                  className="rounded-full bg-[#071A52] hover:bg-blue-900 text-white px-5 py-2 text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-blue-950/10 cursor-pointer"
                 >
                   {savingCategory ? "Saving..." : selectedCategory ? "Update Category" : "Save Category"}
                 </button>

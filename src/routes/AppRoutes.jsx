@@ -27,6 +27,8 @@ import NotificationsPage from "../features/notifications/pages/NotificationsPage
 import AdminDashboardPage from "../features/admin/pages/AdminDashboardPage";
 import AdminReportsPage from "../features/admin/pages/AdminReportsPage";
 import AdminStaffPage from "../features/admin/pages/AdminStaffPage";
+import PaymentManagementPage from "../features/payments/pages/PaymentManagementPage";
+import AnalyticsDashboardPage from "../features/admin/pages/AnalyticsDashboardPage";
 
 import OfficerDashboardPage from "../features/officer/pages/OfficerDashboardPage";
 import OfficerQueuePage from "../features/officer/pages/OfficerQueuePage";
@@ -101,6 +103,8 @@ function AppRoutes() {
         >
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route path="analytics" element={<AnalyticsDashboardPage />} />
+          <Route path="payments" element={<PaymentManagementPage />} />
           <Route path="staff" element={<AdminStaffPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />

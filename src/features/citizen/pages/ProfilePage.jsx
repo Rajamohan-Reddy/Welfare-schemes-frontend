@@ -14,7 +14,7 @@ import toast from "react-hot-toast";
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
-import { getMyProfileApi, updateMyProfileApi } from "../api/profile.api";
+import { getMyProfileApi, updateMyProfileApi, updateMyProfileImageApi } from "../api/profile.api";
 import { setUser } from "../../../utils/storage";
 
 const initialFormState = {
@@ -44,6 +44,8 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageUpdated, setImageUpdated] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     fetchProfile();
@@ -86,6 +88,7 @@ function ProfilePage() {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleAddressChange = (event) => {
@@ -97,6 +100,39 @@ function ProfilePage() {
         [name]: value,
       },
     }));
+    if (name === "pincode") {
+      setErrors((prev) => ({ ...prev, pincode: undefined }));
+    }
+  };
+
+  const validateProfileForm = () => {
+    const nextErrors = {};
+    if (!form.firstName.trim()) nextErrors.firstName = "First name is required.";
+    if (!form.lastName.trim()) nextErrors.lastName = "Last name is required.";
+    if (!form.email.trim()) {
+      nextErrors.email = "Email address is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+    if (!form.phoneNumber.trim()) {
+      nextErrors.phoneNumber = "Mobile number is required.";
+    } else if (!/^\d{10}$/.test(form.phoneNumber.trim())) {
+      nextErrors.phoneNumber = "Enter a 10-digit mobile number.";
+    }
+    if (!form.aadhaarNumber.trim()) {
+      nextErrors.aadhaarNumber = "Aadhaar number is required.";
+    } else if (!/^\d{12}$/.test(form.aadhaarNumber.trim())) {
+      nextErrors.aadhaarNumber = "Enter a 12-digit Aadhaar number.";
+    }
+    if (!form.gender) {
+      nextErrors.gender = "Please select your gender.";
+    } else if (!["MALE", "FEMALE", "OTHER"].includes(form.gender)) {
+      nextErrors.gender = "Please select a valid gender option.";
+    }
+    if (form.address.pincode && !/^\d{6}$/.test(form.address.pincode.trim())) {
+      nextErrors.pincode = "Enter a valid 6-digit PIN code.";
+    }
+    return nextErrors;
   };
 
   const handlePhotoChange = async (event) => {
@@ -110,6 +146,7 @@ function ProfilePage() {
       setUploading(true);
       const base64 = await toBase64(file);
       setImagePreview(base64);
+      setImageUpdated(true);
       setForm((prev) => ({ ...prev, profileImage: base64 }));
       toast.success("Profile image ready to save");
     } catch (error) {
@@ -121,18 +158,46 @@ function ProfilePage() {
   };
 
   const handleSave = async () => {
+    const nextErrors = validateProfileForm();
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast.error("Please fix the highlighted profile errors.");
+      return;
+    }
+
     try {
       setSaving(true);
-      const response = await updateMyProfileApi(form);
-      const updatedProfile = response.data.data;
+      setErrors({});
+
+      const payload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phoneNumber: form.phoneNumber,
+        aadhaarNumber: form.aadhaarNumber,
+        dateOfBirth: form.dateOfBirth || null,
+        gender: form.gender || null,
+        address: form.address,
+      };
+
+      let updatedProfile = null;
+      if (imageUpdated && form.profileImage) {
+        const imageResponse = await updateMyProfileImageApi(form.profileImage);
+        updatedProfile = imageResponse.data.data;
+      }
+
+      const response = await updateMyProfileApi(payload);
+      updatedProfile = response.data.data;
+
       setProfile(updatedProfile);
       setUser(updatedProfile);
       window.dispatchEvent(new Event("userProfileUpdated"));
       setImagePreview(updatedProfile.profileImage || imagePreview);
+      setImageUpdated(false);
       toast.success("Profile updated successfully");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save profile changes");
+      const message = error?.response?.data?.message || "Failed to save profile changes";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -264,11 +329,11 @@ function ProfilePage() {
           <div className="space-y-6">
             {/* Grouped Personal Details */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="First name" name="firstName" value={form.firstName} onChange={handleChange} className="rounded-2xl" />
-              <Input label="Last name" name="lastName" value={form.lastName} onChange={handleChange} className="rounded-2xl" />
-              <Input label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} className="rounded-2xl" />
-              <Input label="Contact Mobile" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} className="rounded-2xl" />
-              <Input label="Aadhaar vault ID" name="aadhaarNumber" value={form.aadhaarNumber} onChange={handleChange} className="rounded-2xl" />
+              <Input label="First name" name="firstName" value={form.firstName} onChange={handleChange} error={errors.firstName} className="rounded-2xl" />
+              <Input label="Last name" name="lastName" value={form.lastName} onChange={handleChange} error={errors.lastName} className="rounded-2xl" />
+              <Input label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} error={errors.email} className="rounded-2xl" />
+              <Input label="Contact Mobile" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} error={errors.phoneNumber} className="rounded-2xl" />
+              <Input label="Aadhaar vault ID" name="aadhaarNumber" value={form.aadhaarNumber} onChange={handleChange} error={errors.aadhaarNumber} className="rounded-2xl" />
               <Input label="Date of Birth" name="dateOfBirth" type="date" value={form.dateOfBirth} onChange={handleChange} className="rounded-2xl" />
             </div>
 
@@ -281,11 +346,11 @@ function ProfilePage() {
                 className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-blue-600 focus:bg-white text-sm font-semibold text-slate-800"
               >
                 <option value="">Select gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Non-binary">Non-binary</option>
-                <option value="Prefer not to say">Prefer not to say</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
               </select>
+              {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
             </div>
 
             {/* Address Parameters Group */}
@@ -302,7 +367,7 @@ function ProfilePage() {
                 <Input label="Mandal / Area" name="mandal" value={form.address.mandal} onChange={handleAddressChange} className="rounded-2xl bg-white" />
                 <Input label="District" name="district" value={form.address.district} onChange={handleAddressChange} className="rounded-2xl bg-white" />
                 <Input label="State" name="state" value={form.address.state} onChange={handleAddressChange} className="rounded-2xl bg-white" />
-                <Input label="PIN code" name="pincode" value={form.address.pincode} onChange={handleAddressChange} className="rounded-2xl bg-white" />
+                <Input label="PIN code" name="pincode" value={form.address.pincode} onChange={handleAddressChange} error={errors.pincode} className="rounded-2xl bg-white" />
               </div>
             </div>
           </div>

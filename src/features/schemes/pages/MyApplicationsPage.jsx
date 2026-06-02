@@ -44,28 +44,40 @@ function MyApplicationsPage() {
 
   const getStatusConfig = (status) => {
     switch (status) {
+      case "SUBMITTED":
+        return {
+          color: "from-amber-400 to-amber-500",
+          badge: "bg-amber-50 text-amber-700 border border-amber-200",
+          icon: Clock3,
+          progress: 25,
+          label: "Submitted",
+        };
+
+      case "DOCUMENT_VERIFIED":
+        return {
+          color: "from-sky-500 to-sky-600",
+          badge: "bg-sky-50 text-sky-700 border border-sky-200",
+          icon: ShieldCheck,
+          progress: 45,
+          label: "Document Verified",
+        };
+
+      case "FIELD_VERIFIED":
+        return {
+          color: "from-violet-500 to-violet-600",
+          badge: "bg-violet-50 text-violet-700 border border-violet-200",
+          icon: ShieldCheck,
+          progress: 70,
+          label: "Field Verified",
+        };
+
       case "APPROVED":
         return {
           color: "from-emerald-500 to-green-600",
           badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
           icon: CheckCircle2,
           progress: 100,
-        };
-
-      case "UNDER_VERIFICATION":
-        return {
-          color: "from-sky-500 to-sky-600",
-          badge: "bg-sky-50 text-sky-700 border border-sky-200",
-          icon: ShieldCheck,
-          progress: 55,
-        };
-
-      case "VERIFIED":
-        return {
-          color: "from-violet-500 to-violet-600",
-          badge: "bg-violet-50 text-violet-700 border border-violet-200",
-          icon: ShieldCheck,
-          progress: 80,
+          label: "Approved",
         };
 
       case "REJECTED":
@@ -74,14 +86,16 @@ function MyApplicationsPage() {
           badge: "bg-rose-50 text-rose-700 border border-rose-200",
           icon: XCircle,
           progress: 100,
+          label: "Rejected",
         };
 
       default:
         return {
-          color: "from-amber-500 to-orange-500",
-          badge: "bg-amber-50 text-amber-700 border border-amber-200",
+          color: "from-slate-400 to-slate-500",
+          badge: "bg-slate-100 text-slate-600 border border-slate-200",
           icon: Clock3,
-          progress: 25,
+          progress: 15,
+          label: "Pending",
         };
     }
   };
@@ -448,22 +462,31 @@ function MyApplicationsPage() {
                       <div
                         className="
                 mt-4
-                h-1.5
+                h-2.5
                 overflow-hidden
                 rounded-full
                 bg-slate-100
+                shadow-inner
               "
                       >
                         <div
                           className="
                   h-full
                   rounded-full
-                  bg-slate-900
+                  bg-gradient-to-r
+                  from-[#D4AF37]
+                  via-[#FDE68A]
+                  to-[#F59E0B]
+                  shadow-[0_0_20px_rgba(212,175,55,0.2)]
                 "
                           style={{
                             width: `${config.progress}%`,
                           }}
                         />
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                        <span>{config.label || application.status.replaceAll("_", " ")}</span>
+                        <span>{config.progress}% complete</span>
                       </div>
 
                       <div className="mt-5 flex justify-end">

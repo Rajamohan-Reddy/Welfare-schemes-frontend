@@ -38,6 +38,13 @@ function CitizenDashboardPage() {
     minute: "2-digit",
   });
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
   const actions = [
     {
       title: "Browse Schemes",
@@ -89,65 +96,48 @@ function CitizenDashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-[#071A52] via-[#12307A] to-[#1E4ED8] p-8 text-white shadow-2xl"
+        className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-[#071A52] via-[#133A72] to-[#1E4ED8] p-6 text-white shadow-2xl"
       >
-        <div className="absolute right-0 top-0 h-full w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06)_0,transparent_100%)] pointer-events-none" />
-        <div className="absolute top-6 right-6 text-right">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-blue-200">{currentDate}</p>
-          <p className="text-sm font-semibold mt-1">{currentTime}</p>
+        <div className="absolute right-0 top-0 h-full w-1/4 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08)_0,transparent_100%)] pointer-events-none" />
+        <div className="absolute top-4 right-4 text-right">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200">{currentDate}</p>
+          <p className="text-xs font-semibold mt-1">{currentTime}</p>
         </div>
 
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-          <div className="space-y-4 max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#FFD95A]/25 bg-[#FFD95A]/10 px-4 py-1.5 text-xs font-bold text-[#FFE68A]">
-              <Sparkles size={14} /> CITIZEN SERVICE DESK
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4 max-w-xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#FFD95A]/25 bg-[#FFD95A]/10 px-3 py-1 text-[10px] font-bold text-[#FFE68A] uppercase tracking-[0.18em]">
+              <Sparkles size={12} /> Citizen Service
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
-              Good Morning, {user?.firstName || "Citizen"} 👋
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight">
+              {getGreeting()}, {user?.firstName || "Citizen"}.
             </h1>
 
-            <p className="text-sm leading-relaxed text-blue-100/90 max-w-xl">
-              Welcome back to your secure welfare service console. Explore new programs, manage active applications, and track decisions transparently.
+            <p className="text-sm leading-relaxed text-blue-100/90 max-w-lg">
+              A lighter dashboard for your welfare journey. Start with schemes, track your application, and check officer updates in one place.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => navigate(ROUTES.CITIZEN_SCHEMES)}
-                className="rounded-full bg-[#FFD95A] hover:bg-[#FFE07D] text-[#071A52] px-6 py-3 font-extrabold text-sm shadow-lg transition duration-200"
+                className="rounded-full bg-[#FFD95A] hover:bg-[#FFE07D] text-[#071A52] px-5 py-2.5 font-bold text-xs shadow-lg transition duration-200"
               >
-                Browse Welfare Schemes
+                Browse Schemes
               </button>
               <button
                 onClick={() => navigate(ROUTES.CITIZEN_APPLICATIONS)}
-                className="rounded-full bg-white/10 hover:bg-white/15 border border-white/20 px-6 py-3 font-bold text-sm transition duration-200"
+                className="rounded-full bg-white/10 hover:bg-white/15 border border-white/20 px-5 py-2.5 font-bold text-xs transition duration-200"
               >
-                Track Applications
+                Track Application
               </button>
             </div>
           </div>
 
-          {/* Profile Completion Widget */}
-          <div className="w-full lg:w-72 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-inner">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Caseload Profile Integrity</span>
-              <span className="text-xs font-bold text-[#FFD95A]">65% Done</span>
-            </div>
-            
-            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#FFD95A]" style={{ width: "65%" }} />
-            </div>
-
-            <p className="text-[11px] text-slate-300 mt-3 leading-relaxed">
-              Verify your Aadhaar and bank mapping to unlock accelerated file decisions.
-            </p>
-
-            <button
-              onClick={() => navigate(ROUTES.CITIZEN_PROFILE)}
-              className="mt-4 flex items-center gap-1.5 text-xs font-extrabold text-[#FFD95A] hover:text-white transition"
-            >
-              Verify Identity Profile <ArrowRight size={12} />
-            </button>
+          <div className="rounded-[28px] border border-white/20 bg-white/10 p-4 text-xs font-bold uppercase tracking-[0.22em] text-blue-100 text-left shadow-inner">
+            <p className="text-[9px] text-blue-200 mb-2">Premium match</p>
+            <p className="text-sm font-black text-white">Speed lane recommended</p>
+            <p className="mt-2 text-[11px] text-blue-100/80">Your profile is on a priority track for benefit processing when you keep documents current.</p>
           </div>
         </div>
       </motion.div>
