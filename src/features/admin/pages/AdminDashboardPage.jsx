@@ -19,6 +19,7 @@ import {
   DollarSign,
   Loader2,
   RefreshCcw,
+  Plus,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -38,6 +39,7 @@ import {
   getMonthlyApplicationsChartApi,
 } from "../../dashboard/api/dashboard.api";
 import { getFieldVerifiedQueueApi, approveApi, rejectApi } from "../../verification/api/verification.api";
+import { getAllCategoriesApi, createSchemeApi, createSchemeCategoryApi } from "../../schemes/api/schemes.api";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import api from "../../../api/axios";
@@ -66,6 +68,26 @@ function AdminDashboardPage() {
   const [approvalsLoading, setApprovalsLoading] = useState(false);
   const [remarks, setRemarks] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [operationModalOpen, setOperationModalOpen] = useState(false);
+  const [operationType, setOperationType] = useState(null);
+  const [operationSubmitting, setOperationSubmitting] = useState(false);
+  const [operationErrors, setOperationErrors] = useState({});
+  const [schemeCategories, setSchemeCategories] = useState([]);
+  const [schemeForm, setSchemeForm] = useState({
+    schemeCode: "",
+    schemeName: "",
+    description: "",
+    department: "",
+    categoryId: "",
+    benefitType: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [categoryForm, setCategoryForm] = useState({
+    categoryCode: "",
+    categoryName: "",
+  });
 
   useEffect(() => {
     load();
@@ -116,6 +138,134 @@ function AdminDashboardPage() {
       toast.error("Failed to query approvals registry");
     } finally {
       setApprovalsLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const response = await getAllCategoriesApi();
+      setSchemeCategories(response.data.data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Unable to load scheme categories");
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const resetOperationForms = () => {
+    setSchemeForm({
+      schemeCode: "",
+      schemeName: "",
+      description: "",
+      department: "",
+      categoryId: "",
+      benefitType: "",
+      startDate: "",
+      endDate: "",
+    });
+    setCategoryForm({ categoryCode: "", categoryName: "" });
+    setOperationErrors({});
+    setOperationSubmitting(false);
+    setOperationType(null);
+  };
+
+  const openOperationModal = (type) => {
+    resetOperationForms();
+    setOperationType(type);
+    setOperationModalOpen(true);
+  };
+
+  const closeOperationModal = () => {
+    setOperationModalOpen(false);
+    resetOperationForms();
+  };
+
+  const validateSchemeForm = () => {
+    const nextErrors = {};
+    if (!schemeForm.schemeCode.trim()) nextErrors.schemeCode = "Scheme code is required.";
+    if (!schemeForm.schemeName.trim()) nextErrors.schemeName = "Scheme name is required.";
+    if (!schemeForm.description.trim()) nextErrors.description = "Description is required.";
+    if (!schemeForm.department.trim()) nextErrors.department = "Department is required.";
+    if (!schemeForm.categoryId) nextErrors.categoryId = "Category is required.";
+    if (!schemeForm.benefitType) nextErrors.benefitType = "Benefit type is required.";
+    if (!schemeForm.startDate) nextErrors.startDate = "Start date is required.";
+    if (!schemeForm.endDate) nextErrors.endDate = "End date is required.";
+
+    setOperationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const validateCategoryForm = () => {
+    const nextErrors = {};
+    if (!categoryForm.categoryCode.trim()) nextErrors.categoryCode = "Category code is required.";
+    if (!categoryForm.categoryName.trim()) nextErrors.categoryName = "Category name is required.";
+
+    setOperationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const benefitTypeOptions = [
+    { value: "DIRECT_BENEFIT_TRANSFER", label: "Direct Benefit Transfer" },
+    { value: "PENSION", label: "Pension" },
+    { value: "SCHOLARSHIP", label: "Scholarship" },
+    { value: "SUBSIDY", label: "Subsidy" },
+    { value: "REIMBURSEMENT", label: "Reimbursement" },
+    { value: "HEALTH_ASSISTANCE", label: "Health Assistance" },
+    { value: "HOUSING_ASSISTANCE", label: "Housing Assistance" },
+    { value: "LOAN_ASSISTANCE", label: "Loan Assistance" },
+    { value: "INSURANCE", label: "Insurance" },
+    { value: "TRAINING_SUPPORT", label: "Training Support" },
+    { value: "EMPLOYMENT_SUPPORT", label: "Employment Support" },
+    { value: "EQUIPMENT_ASSISTANCE", label: "Equipment Assistance" },
+  ];
+
+  const handleOperationSubmit = async (event) => {
+    event.preventDefault();
+
+    if (operationType === "scheme") {
+      if (!validateSchemeForm()) {
+        toast.error("Please fix the highlighted scheme fields.");
+        return;
+      }
+    }
+
+    if (operationType === "category") {
+      if (!validateCategoryForm()) {
+        toast.error("Please fix the highlighted category fields.");
+        return;
+      }
+    }
+
+    try {
+      setOperationSubmitting(true);
+
+      if (operationType === "scheme") {
+        await createSchemeApi({
+          ...schemeForm,
+          categoryId: schemeForm.categoryId,
+        });
+        toast.success("Scheme created successfully.");
+        load();
+      }
+
+      if (operationType === "category") {
+        await createSchemeCategoryApi({
+          categoryCode: categoryForm.categoryCode,
+          categoryName: categoryForm.categoryName,
+        });
+        toast.success("Scheme category created successfully.");
+        await loadCategories();
+      }
+
+      closeOperationModal();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Unable to complete the request.");
+    } finally {
+      setOperationSubmitting(false);
     }
   };
 
@@ -453,6 +603,60 @@ function AdminDashboardPage() {
           </motion.div>
         )}
 
+        {activeTab === "operations" && (
+          <motion.div
+            key="operations"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+          >
+            <Card className="rounded-[36px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#4338CA]">Program Operations</span>
+                  <h2 className="text-2xl font-black text-[#071A52] tracking-tight mt-0.5">Create Schemes & Categories</h2>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => openOperationModal("scheme")}
+                    className="rounded-full bg-blue-50 hover:bg-blue-100/85 text-blue-700 px-4 py-2 text-xs font-black uppercase tracking-wider border border-blue-200/50 shadow-sm transition inline-flex items-center gap-2 active:scale-95"
+                  >
+                    <Plus size={14} /> Create Scheme
+                  </button>
+                  <button
+                    onClick={() => openOperationModal("category")}
+                    className="rounded-full bg-indigo-50 hover:bg-indigo-100/85 text-indigo-700 px-4 py-2 text-xs font-black uppercase tracking-wider border border-indigo-200/50 shadow-sm transition inline-flex items-center gap-2 active:scale-95"
+                  >
+                    <Plus size={14} /> Create Category
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-[28px] border border-slate-100 bg-slate-50 p-6 space-y-3">
+                  <h3 className="text-lg font-black text-[#071A52]">Scheme Operations</h3>
+                  <p className="text-sm text-slate-500">Create new welfare schemes quickly from the admin command center. Schemes are immediately available after creation.</p>
+                  <div className="flex flex-col gap-2 text-xs text-slate-600">
+                    <p><span className="font-semibold text-slate-800">Categories loaded:</span> {schemeCategories.length}</p>
+                    <p><span className="font-semibold text-slate-800">Benefit types:</span> {benefitTypeOptions.length}</p>
+                  </div>
+                </div>
+                <div className="rounded-[28px] border border-slate-100 bg-slate-50 p-6 space-y-3">
+                  <h3 className="text-lg font-black text-[#071A52]">Category Operations</h3>
+                  <p className="text-sm text-slate-500">Create classifications for scheme types and improve scheme discovery across the platform.</p>
+                  <div className="text-xs text-slate-600">
+                    <p className="font-semibold text-slate-800">Ready to add:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Category code</li>
+                      <li>Category display name</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Real-Life Approvals Queue Desk */}
         {activeTab === "approvals" && (
           <motion.div
@@ -554,6 +758,180 @@ function AdminDashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {operationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-slate-50/50">
+              <div>
+                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Program Command Registry</span>
+                <h2 className="mt-1 text-base font-black text-[#071A52]">
+                  {operationType === "scheme" ? "Create New Scheme" : "Create Scheme Category"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeOperationModal}
+                className="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
+              >
+                <XCircle size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleOperationSubmit} className="space-y-4 p-6">
+              {operationType === "scheme" ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scheme Code</label>
+                      <input
+                        value={schemeForm.schemeCode}
+                        onChange={(e) => setSchemeForm({ ...schemeForm, schemeCode: e.target.value })}
+                        placeholder="e.g. MNREGA"
+                        className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.schemeCode ? "border-rose-500" : "border-slate-200"}`}
+                      />
+                      {operationErrors.schemeCode && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.schemeCode}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scheme Name</label>
+                      <input
+                        value={schemeForm.schemeName}
+                        onChange={(e) => setSchemeForm({ ...schemeForm, schemeName: e.target.value })}
+                        placeholder="e.g. Rural Employment Guarantee"
+                        className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.schemeName ? "border-rose-500" : "border-slate-200"}`}
+                      />
+                      {operationErrors.schemeName && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.schemeName}</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Department</label>
+                      <input
+                        value={schemeForm.department}
+                        onChange={(e) => setSchemeForm({ ...schemeForm, department: e.target.value })}
+                        placeholder="e.g. Rural Development"
+                        className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.department ? "border-rose-500" : "border-slate-200"}`}
+                      />
+                      {operationErrors.department && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.department}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</label>
+                      <select
+                        value={schemeForm.categoryId}
+                        onChange={(e) => setSchemeForm({ ...schemeForm, categoryId: e.target.value })}
+                        className={`w-full rounded-2xl border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.categoryId ? "border-rose-500" : "border-slate-200"}`}
+                      >
+                        <option value="">Select category</option>
+                        {schemeCategories.map((category) => (
+                          <option key={category._id} value={category._id}>{category.categoryName}</option>
+                        ))}
+                      </select>
+                      {operationErrors.categoryId && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.categoryId}</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Benefit Type</label>
+                      <select
+                        value={schemeForm.benefitType}
+                        onChange={(e) => setSchemeForm({ ...schemeForm, benefitType: e.target.value })}
+                        className={`w-full rounded-2xl border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.benefitType ? "border-rose-500" : "border-slate-200"}`}
+                      >
+                        <option value="">Select benefit type</option>
+                        {benefitTypeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      {operationErrors.benefitType && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.benefitType}</p>}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Start Date</label>
+                        <input
+                          type="date"
+                          value={schemeForm.startDate}
+                          onChange={(e) => setSchemeForm({ ...schemeForm, startDate: e.target.value })}
+                          className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.startDate ? "border-rose-500" : "border-slate-200"}`}
+                        />
+                        {operationErrors.startDate && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.startDate}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">End Date</label>
+                        <input
+                          type="date"
+                          value={schemeForm.endDate}
+                          onChange={(e) => setSchemeForm({ ...schemeForm, endDate: e.target.value })}
+                          className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.endDate ? "border-rose-500" : "border-slate-200"}`}
+                        />
+                        {operationErrors.endDate && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.endDate}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Description</label>
+                    <textarea
+                      value={schemeForm.description}
+                      onChange={(e) => setSchemeForm({ ...schemeForm, description: e.target.value })}
+                      placeholder="Add a short summary for the scheme"
+                      className={`w-full min-h-[120px] rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.description ? "border-rose-500" : "border-slate-200"}`}
+                    />
+                    {operationErrors.description && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.description}</p>}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Code</label>
+                      <input
+                        value={categoryForm.categoryCode}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, categoryCode: e.target.value.toUpperCase() })}
+                        placeholder="e.g. AGR"
+                        className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.categoryCode ? "border-rose-500" : "border-slate-200"}`}
+                      />
+                      {operationErrors.categoryCode && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.categoryCode}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Name</label>
+                      <input
+                        value={categoryForm.categoryName}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, categoryName: e.target.value })}
+                        placeholder="e.g. Agriculture & Farmers Welfare"
+                        className={`w-full rounded-2xl border px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition ${operationErrors.categoryName ? "border-rose-500" : "border-slate-200"}`}
+                      />
+                      {operationErrors.categoryName && <p className="text-[10px] text-red-500 font-semibold">{operationErrors.categoryName}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeOperationModal}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 py-2 text-xs font-bold transition active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={operationSubmitting}
+                  className="rounded-full bg-[#071A52] hover:bg-blue-900 text-white px-5 py-2 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-md shadow-blue-950/10 cursor-pointer"
+                >
+                  {operationSubmitting ? "Saving..." : (
+                    <>
+                      <Plus size={13} /> Save {operationType === "scheme" ? "Scheme" : "Category"}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

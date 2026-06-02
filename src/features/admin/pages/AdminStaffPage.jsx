@@ -13,6 +13,8 @@ import {
   User,
   X,
   Search,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -26,6 +28,16 @@ import {
   getOfficersApi,
   updateUserStatusApi,
 } from "../api/admin.api";
+import {
+  getAllCategoriesApi,
+  getAllSchemesApi,
+  createSchemeApi,
+  updateSchemeApi,
+  deleteSchemeApi,
+  createSchemeCategoryApi,
+  updateSchemeCategoryApi,
+  deleteSchemeCategoryApi,
+} from "../../schemes/api/schemes.api";
 
 function AdminStaffPage() {
   const [loading, setLoading] = useState(true);
@@ -45,8 +57,34 @@ function AdminStaffPage() {
   });
   const [errors, setErrors] = useState({});
 
+  const [categories, setCategories] = useState([]);
+  const [schemes, setSchemes] = useState([]);
+  const [schemeModalOpen, setSchemeModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedScheme, setSelectedScheme] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [schemeForm, setSchemeForm] = useState({
+    schemeCode: "",
+    schemeName: "",
+    description: "",
+    categoryId: "",
+    department: "",
+    benefitType: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [categoryForm, setCategoryForm] = useState({
+    categoryCode: "",
+    categoryName: "",
+  });
+  const [schemeErrors, setSchemeErrors] = useState({});
+  const [categoryErrors, setCategoryErrors] = useState({});
+  const [savingScheme, setSavingScheme] = useState(false);
+  const [savingCategory, setSavingCategory] = useState(false);
+
   useEffect(() => {
     loadStaff();
+    loadSchemeData();
   }, []);
 
   const loadStaff = async () => {
@@ -66,6 +104,20 @@ function AdminStaffPage() {
     }
   };
 
+  const loadSchemeData = async () => {
+    try {
+      const [categoriesResponse, schemesResponse] = await Promise.all([
+        getAllCategoriesApi(),
+        getAllSchemesApi(),
+      ]);
+      setCategories(categoriesResponse.data.data || []);
+      setSchemes(schemesResponse.data.data || []);
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to load scheme management data");
+    }
+  };
+
   const handleToggleStatus = async (user) => {
     try {
       await updateUserStatusApi(user._id, !user.isActive);
@@ -77,9 +129,195 @@ function AdminStaffPage() {
     }
   };
 
+  const closeSchemeModal = () => {
+    setSchemeModalOpen(false);
+    setSelectedScheme(null);
+    setSchemeForm({
+      schemeCode: "",
+      schemeName: "",
+      description: "",
+      categoryId: "",
+      department: "",
+      benefitType: "",
+      startDate: "",
+      endDate: "",
+    });
+    setSchemeErrors({});
+  };
+
+  const closeCategoryModal = () => {
+    setCategoryModalOpen(false);
+    setSelectedCategory(null);
+    setCategoryForm({
+      categoryCode: "",
+      categoryName: "",
+    });
+    setCategoryErrors({});
+  };
+
   const closeModal = () => {
     setModalOpen(false);
     setErrors({});
+  };
+
+  const validateSchemeForm = () => {
+    const nextErrors = {};
+    if (!schemeForm.schemeCode.trim()) nextErrors.schemeCode = "Scheme code is required.";
+    if (!schemeForm.schemeName.trim()) nextErrors.schemeName = "Scheme name is required.";
+    if (!schemeForm.categoryId.trim()) nextErrors.categoryId = "Please select a category.";
+    if (!schemeForm.department.trim()) nextErrors.department = "Department is required.";
+    if (!schemeForm.benefitType.trim()) nextErrors.benefitType = "Benefit type is required.";
+    setSchemeErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const validateCategoryForm = () => {
+    const nextErrors = {};
+    if (!categoryForm.categoryCode.trim()) nextErrors.categoryCode = "Category code is required.";
+    if (!categoryForm.categoryName.trim()) nextErrors.categoryName = "Category name is required.";
+    setCategoryErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleOpenCreateScheme = () => {
+    setSelectedScheme(null);
+    setSchemeModalOpen(true);
+    setSchemeForm({
+      schemeCode: "",
+      schemeName: "",
+      description: "",
+      categoryId: "",
+      department: "",
+      benefitType: "",
+      startDate: "",
+      endDate: "",
+    });
+  };
+
+  const handleEditScheme = (scheme) => {
+    setSelectedScheme(scheme);
+    const categoryId = scheme.categoryId?._id || scheme.categoryId || "";
+    setSchemeForm({
+      schemeCode: scheme.schemeCode || "",
+      schemeName: scheme.schemeName || "",
+      description: scheme.description || "",
+      categoryId,
+      department: scheme.department || "",
+      benefitType: scheme.benefitType || "",
+      startDate: scheme.startDate ? scheme.startDate.slice(0, 10) : "",
+      endDate: scheme.endDate ? scheme.endDate.slice(0, 10) : "",
+    });
+    setSchemeModalOpen(true);
+  };
+
+  const handleDeleteScheme = async (scheme) => {
+    if (!window.confirm(`Delete scheme ${scheme.schemeName}? This cannot be undone.`)) return;
+    try {
+      await deleteSchemeApi(scheme._id);
+      toast.success("Scheme removed successfully");
+      await loadSchemeData();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to remove scheme");
+    }
+  };
+
+  const handleSubmitScheme = async (event) => {
+    event.preventDefault();
+    if (!validateSchemeForm()) {
+      toast.error("Please complete all required scheme fields.");
+      return;
+    }
+
+    try {
+      setSavingScheme(true);
+      const payload = {
+        schemeCode: schemeForm.schemeCode,
+        schemeName: schemeForm.schemeName,
+        description: schemeForm.description,
+        categoryId: schemeForm.categoryId,
+        department: schemeForm.department,
+        benefitType: schemeForm.benefitType,
+        startDate: schemeForm.startDate,
+        endDate: schemeForm.endDate,
+      };
+
+      if (selectedScheme) {
+        await updateSchemeApi(selectedScheme._id, payload);
+        toast.success("Scheme updated successfully");
+      } else {
+        await createSchemeApi(payload);
+        toast.success("Scheme created successfully");
+      }
+      await loadSchemeData();
+      closeSchemeModal();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save scheme");
+    } finally {
+      setSavingScheme(false);
+    }
+  };
+
+  const handleOpenCreateCategory = () => {
+    setSelectedCategory(null);
+    setCategoryModalOpen(true);
+    setCategoryForm({
+      categoryCode: "",
+      categoryName: "",
+    });
+  };
+
+  const handleEditCategory = (category) => {
+    setSelectedCategory(category);
+    setCategoryForm({
+      categoryCode: category.categoryCode || "",
+      categoryName: category.categoryName || "",
+    });
+    setCategoryModalOpen(true);
+  };
+
+  const handleDeleteCategory = async (category) => {
+    if (!window.confirm(`Delete category ${category.categoryName}? This cannot be undone.`)) return;
+    try {
+      await deleteSchemeCategoryApi(category._id);
+      toast.success("Category removed successfully");
+      await loadSchemeData();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to remove category");
+    }
+  };
+
+  const handleSubmitCategory = async (event) => {
+    event.preventDefault();
+    if (!validateCategoryForm()) {
+      toast.error("Please complete all required category fields.");
+      return;
+    }
+
+    try {
+      setSavingCategory(true);
+      const payload = {
+        categoryCode: categoryForm.categoryCode,
+        categoryName: categoryForm.categoryName,
+      };
+
+      if (selectedCategory) {
+        await updateSchemeCategoryApi(selectedCategory._id, payload);
+        toast.success("Category updated successfully");
+      } else {
+        await createSchemeCategoryApi(payload);
+        toast.success("Category created successfully");
+      }
+      await loadSchemeData();
+      closeCategoryModal();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save category");
+    } finally {
+      setSavingCategory(false);
+    }
   };
 
   const validateForm = () => {
@@ -166,6 +404,14 @@ function AdminStaffPage() {
         item.email?.toLowerCase().includes(query)
     );
   }, [activeTab, admins, officers, searchQuery]);
+
+  const categoryLookup = useMemo(
+    () => categories.reduce((map, category) => {
+      map[category._id] = category.categoryName;
+      return map;
+    }, {}),
+    [categories],
+  );
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-1">
@@ -310,6 +556,128 @@ function AdminStaffPage() {
         )}
       </Card>
 
+      <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-100 pb-5">
+          <div>
+            <h2 className="text-lg font-black text-[#071A52]">Scheme Operations</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Maintain scheme categories and schemes from a single admin control panel.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleOpenCreateCategory}
+              className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 text-[10px] font-black uppercase tracking-wider border border-slate-200 shadow-sm transition inline-flex items-center gap-1 active:scale-95"
+            >
+              <Plus size={12} /> Add Category
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCreateScheme}
+              className="rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 text-[10px] font-black uppercase tracking-wider border border-blue-200 shadow-sm transition inline-flex items-center gap-1 active:scale-95"
+            >
+              <Plus size={12} /> Add Scheme
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-[#071A52]">Categories</h3>
+                <p className="text-[11px] text-slate-400">Manage classification groups used by schemes.</p>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                {categories.length} categories
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {categories.length === 0 ? (
+                <div className="rounded-[28px] border border-slate-100 bg-slate-50 p-5 text-slate-500 text-xs">
+                  No categories found. Add a category to keep schemes organized.
+                </div>
+              ) : (
+                categories.map((category) => (
+                  <div key={category._id} className="rounded-3xl border border-slate-200/80 p-4 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-[#071A52]">{category.categoryName}</p>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-[0.18em] mt-1">{category.categoryCode}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditCategory(category)}
+                        className="rounded-full bg-white border border-slate-200 text-slate-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-slate-100 transition"
+                      >
+                        <Edit size={12} /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(category)}
+                        className="rounded-full bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-red-100 transition"
+                      >
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-[#071A52]">Schemes</h3>
+                <p className="text-[11px] text-slate-400">Edit scheme definitions, benefit type, and enforcement dates.</p>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                {schemes.length} schemes
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {schemes.length === 0 ? (
+                <div className="rounded-[28px] border border-slate-100 bg-slate-50 p-5 text-slate-500 text-xs">
+                  No schemes configured. Add a scheme to enable benefit delivery.
+                </div>
+              ) : (
+                schemes.map((scheme) => (
+                  <div key={scheme._id} className="rounded-3xl border border-slate-200/80 p-4 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-[#071A52]">{scheme.schemeName}</p>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-[0.18em] mt-1">
+                        {scheme.schemeCode} • {scheme.benefitType || "Benefit type missing"}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-2">Category: {scheme.categoryId?.categoryName || categoryLookup[scheme.categoryId] || "Unassigned"}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditScheme(scheme)}
+                        className="rounded-full bg-white border border-slate-200 text-slate-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-slate-100 transition"
+                      >
+                        <Edit size={12} /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteScheme(scheme)}
+                        className="rounded-full bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-[10px] font-bold uppercase tracking-wide hover:bg-red-100 transition"
+                      >
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Macbook style modal overlays */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -433,6 +801,206 @@ function AdminStaffPage() {
                       <Plus size={13} /> Invite Staff member
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {schemeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-slate-50/50">
+              <div>
+                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Scheme Management</span>
+                <h2 className="mt-1 text-base font-black text-[#071A52]">
+                  {selectedScheme ? "Update Scheme" : "Create Scheme"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeSchemeModal}
+                className="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitScheme} className="space-y-4 p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scheme Code</label>
+                  <input
+                    value={schemeForm.schemeCode}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, schemeCode: e.target.value })}
+                    placeholder="EX: AP-HEALTH"
+                    className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${schemeErrors.schemeCode ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  />
+                  {schemeErrors.schemeCode && <p className="text-[10px] text-red-500 font-semibold">{schemeErrors.schemeCode}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scheme Name</label>
+                  <input
+                    value={schemeForm.schemeName}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, schemeName: e.target.value })}
+                    placeholder="Enter scheme title"
+                    className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${schemeErrors.schemeName ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  />
+                  {schemeErrors.schemeName && <p className="text-[10px] text-red-500 font-semibold">{schemeErrors.schemeName}</p>}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</label>
+                  <select
+                    value={schemeForm.categoryId}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, categoryId: e.target.value })}
+                    className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${schemeErrors.categoryId ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.categoryName}
+                      </option>
+                    ))}
+                  </select>
+                  {schemeErrors.categoryId && <p className="text-[10px] text-red-500 font-semibold">{schemeErrors.categoryId}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Department</label>
+                  <input
+                    value={schemeForm.department}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, department: e.target.value })}
+                    placeholder="Enter department name"
+                    className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${schemeErrors.department ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  />
+                  {schemeErrors.department && <p className="text-[10px] text-red-500 font-semibold">{schemeErrors.department}</p>}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Benefit Type</label>
+                  <input
+                    value={schemeForm.benefitType}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, benefitType: e.target.value })}
+                    placeholder="Cash transfer, scholarship..."
+                    className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${schemeErrors.benefitType ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                  />
+                  {schemeErrors.benefitType && <p className="text-[10px] text-red-500 font-semibold">{schemeErrors.benefitType}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Start Date</label>
+                    <input
+                      type="date"
+                      value={schemeForm.startDate}
+                      onChange={(e) => setSchemeForm({ ...schemeForm, startDate: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-800 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">End Date</label>
+                    <input
+                      type="date"
+                      value={schemeForm.endDate}
+                      onChange={(e) => setSchemeForm({ ...schemeForm, endDate: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-800 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Description</label>
+                <textarea
+                  rows={3}
+                  value={schemeForm.description}
+                  onChange={(e) => setSchemeForm({ ...schemeForm, description: e.target.value })}
+                  placeholder="Optional summary for internal review"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-800 outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeSchemeModal}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 py-2 text-xs font-bold transition active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingScheme}
+                  className="rounded-full bg-[#071A52] hover:bg-blue-900 text-white px-5 py-2 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-md shadow-blue-950/10 cursor-pointer"
+                >
+                  {savingScheme ? "Saving..." : selectedScheme ? "Update Scheme" : "Save Scheme"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {categoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg overflow-hidden rounded-[30px] bg-white shadow-2xl border border-slate-200/60 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-slate-50/50">
+              <div>
+                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Category Management</span>
+                <h2 className="mt-1 text-base font-black text-[#071A52]">
+                  {selectedCategory ? "Update Category" : "Create Category"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeCategoryModal}
+                className="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitCategory} className="space-y-4 p-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Code</label>
+                <input
+                  value={categoryForm.categoryCode}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, categoryCode: e.target.value })}
+                  placeholder="EX: SOCIAL-WELFARE"
+                  className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${categoryErrors.categoryCode ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                />
+                {categoryErrors.categoryCode && <p className="text-[10px] text-red-500 font-semibold">{categoryErrors.categoryCode}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category Name</label>
+                <input
+                  value={categoryForm.categoryName}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, categoryName: e.target.value })}
+                  placeholder="Enter category label"
+                  className={`w-full rounded-2xl border px-4 py-2 text-xs font-semibold text-slate-800 outline-none ${categoryErrors.categoryName ? "border-rose-500 bg-rose-50" : "border-slate-200 bg-slate-50"}`}
+                />
+                {categoryErrors.categoryName && <p className="text-[10px] text-red-500 font-semibold">{categoryErrors.categoryName}</p>}
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeCategoryModal}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 py-2 text-xs font-bold transition active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCategory}
+                  className="rounded-full bg-[#071A52] hover:bg-blue-900 text-white px-5 py-2 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-md shadow-blue-950/10 cursor-pointer"
+                >
+                  {savingCategory ? "Saving..." : selectedCategory ? "Update Category" : "Save Category"}
                 </button>
               </div>
             </form>
