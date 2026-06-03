@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Building,
   Sparkles,
+  ChevronLeft,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -78,6 +79,15 @@ function SchemeDetailsPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-1">
+      {/* Back Button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition"
+      >
+        <ChevronLeft size={18} />
+        Back
+      </button>
+
       {/* High-Fidelity Banner Card */}
       <section className="relative overflow-hidden rounded-[36px] bg-slate-900 text-white shadow-2xl h-80 flex items-end">
         <img

@@ -190,10 +190,10 @@ function Header() {
                   ) : (
                     notifications.slice(0, 6).map((n) => (
                       <div key={n._id}
-                        className={`flex gap-3 items-start px-4 py-3.5 hover:bg-slate-50 transition ${!n.read ? "bg-blue-50/50" : ""
+                        className={`flex gap-3 items-start px-4 py-3.5 hover:bg-slate-50 transition ${!n.isRead ? "bg-blue-50/50" : ""
                           }`}
                       >
-                        <span className={`mt-2 h-1.5 w-1.5 rounded-full shrink-0 ${n.read ? "bg-slate-250" : "bg-blue-600 shadow-[0_0_8px_#3b82f6]"}`} />
+                        <span className={`mt-2 h-1.5 w-1.5 rounded-full shrink-0 ${n.isRead ? "bg-slate-250" : "bg-blue-600 shadow-[0_0_8px_#3b82f6]"}`} />
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-black text-slate-800 truncate">{n.title}</p>
                           <p className="text-[10px] text-slate-500 font-medium line-clamp-2 mt-0.5 leading-relaxed">{n.message}</p>
@@ -202,7 +202,7 @@ function Header() {
                           </p>
                         </div>
                         <div className="flex flex-col gap-1.5 shrink-0">
-                          {!n.read && (
+                          {!n.isRead && (
                             <button type="button" onClick={() => handleNotificationClick(n._id)} title="Mark read"
                               className="rounded-full p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
                               <Check size={11} />

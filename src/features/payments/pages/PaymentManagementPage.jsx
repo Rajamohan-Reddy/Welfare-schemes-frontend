@@ -51,21 +51,44 @@ function PaymentManagementPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [paymentsResp, analyticsResp] = await Promise.all([
-        getPaymentsApi(),
-        getPaymentsAnalyticsApi(),
-      ]);
+      
+      // Load payments
+      let paymentsList = [];
+      try {
+        console.log("🔄 Fetching payments...");
+        const paymentsResp = await getPaymentsApi();
+        console.log("📦 Payments response:", paymentsResp);
+        
+        paymentsList = Array.isArray(paymentsResp.data?.data)
+          ? paymentsResp.data.data
+          : Array.isArray(paymentsResp.data)
+          ? paymentsResp.data
+          : [];
+        console.log("✅ Payments loaded:", paymentsList.length, "items");
+      } catch (paymentErr) {
+        console.error("❌ Error loading payments:", paymentErr);
+        toast.error("Failed to load payments. Please try again.");
+        setPayments([]);
+      }
 
-      const paymentsList = Array.isArray(paymentsResp.data?.data)
-        ? paymentsResp.data.data
-        : [];
-      const analyticsData =
-        analyticsResp.data?.data || {};
+      // Load analytics (optional - doesn't block if fails)
+      let analyticsData = {};
+      try {
+        console.log("🔄 Fetching analytics...");
+        const analyticsResp = await getPaymentsAnalyticsApi();
+        console.log("📦 Analytics response:", analyticsResp);
+        
+        analyticsData = analyticsResp.data?.data || {};
+        console.log("✅ Analytics loaded");
+      } catch (analyticsErr) {
+        console.error("⚠️ Analytics failed (non-blocking):", analyticsErr);
+        analyticsData = {};
+      }
 
       setPayments(paymentsList);
       setAnalytics(analyticsData);
     } catch (err) {
-      console.error("Error loading payments:", err);
+      console.error("Error in loadData:", err);
       toast.error("Failed to load payment data");
     } finally {
       setLoading(false);

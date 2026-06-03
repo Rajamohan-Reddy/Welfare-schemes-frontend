@@ -122,10 +122,10 @@ function AnalyticsDashboardPage() {
             </div>
             <Button
               onClick={loadAnalytics}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
             >
-              <RefreshCcw className="w-4 h-4" />
-              Refresh
+              <RefreshCcw className="w-4 h-4 animate-spin-slow" />
+              Refresh Analytics
             </Button>
           </div>
         </div>

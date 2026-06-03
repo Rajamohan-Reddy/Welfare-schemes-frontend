@@ -5,8 +5,6 @@ import { getApplicationByIdApi } from "../../schemes/api/applications.api";
 import {
   documentVerifyApi,
   fieldVerifyApi,
-  approveApi,
-  rejectApi,
 } from "../../verification/api/verification.api";
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
@@ -43,6 +41,12 @@ function OfficerReviewPage() {
   const handleAction = async (apiCall, successMsg) => {
     if (!remarks.trim()) {
       toast.error("Review remarks are required to execute actions.");
+      return;
+    }
+
+    // Gate check: Field verification requires document verification to be completed first
+    if (apiCall === fieldVerifyApi && application?.status !== "DOCUMENT_VERIFIED") {
+      toast.error("❌ Document verification must be completed first before proceeding to field verification.");
       return;
     }
 
@@ -202,43 +206,23 @@ function OfficerReviewPage() {
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Caseload Decision Pathways</p>
               
-              {/* Document Verify (SUBMITTED -> UNDER_VERIFICATION) */}
+              {/* Document Verify (SUBMITTED -> DOCUMENT_VERIFIED) */}
               <button
                 onClick={() => handleAction(documentVerifyApi, "Document verification completed")}
                 disabled={actionLoading}
-                className="w-full rounded-full bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition"
+                className="w-full rounded-full bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-50"
               >
                 Verify Documents Checkpoint
               </button>
 
-              {/* Field Verify (UNDER_VERIFICATION -> VERIFIED) */}
+              {/* Field Verify (DOCUMENT_VERIFIED -> FIELD_VERIFIED) & Submit to Admin */}
               <button
-                onClick={() => handleAction(fieldVerifyApi, "Field verification completed")}
+                onClick={() => handleAction(fieldVerifyApi, "Application submitted to Admin for approval! File will now be reviewed by Admin for final decision.")}
                 disabled={actionLoading}
-                className="w-full rounded-full bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition"
+                className="w-full rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-50"
               >
-                Verify Field Checkpoint
+                ✓ Verify Field & Submit to Admin
               </button>
-
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                {/* Approve (VERIFIED -> APPROVED) */}
-                <button
-                  onClick={() => handleAction(approveApi, "Application approved successfully")}
-                  disabled={actionLoading}
-                  className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition"
-                >
-                  Approve Application
-                </button>
-
-                {/* Reject */}
-                <button
-                  onClick={() => handleAction(rejectApi, "Application rejected")}
-                  disabled={actionLoading}
-                  className="rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition"
-                >
-                  Reject Application
-                </button>
-              </div>
             </div>
           </Card>
         </div>

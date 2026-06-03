@@ -39,6 +39,7 @@ import {
   getMonthlyApplicationsChartApi,
 } from "../../dashboard/api/dashboard.api";
 import { getFieldVerifiedQueueApi, approveApi, rejectApi } from "../../verification/api/verification.api";
+import { getApplicationsByStatusApi } from "../api/admin.api";
 import { getAllCategoriesApi, createSchemeApi, createSchemeCategoryApi } from "../../schemes/api/schemes.api";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
@@ -66,8 +67,8 @@ function AdminDashboardPage() {
   // Real-life approvals queues
   const [approvalsQueue, setApprovalsQueue] = useState([]);
   const [approvalsLoading, setApprovalsLoading] = useState(false);
-  const [remarks, setRemarks] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
+  const [remarks, setRemarks] = useState({}); // Per-application remarks
+  const [actionLoadingId, setActionLoadingId] = useState(null); // Track which app is being processed
 
   const [operationModalOpen, setOperationModalOpen] = useState(false);
   const [operationType, setOperationType] = useState(null);
@@ -132,18 +133,31 @@ function AdminDashboardPage() {
   const loadApprovalsQueue = async () => {
     try {
       setApprovalsLoading(true);
-      const response = await getFieldVerifiedQueueApi();
-      const payload = response.data.data;
-      const queueData = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.applications)
-          ? payload.applications
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
-      setApprovalsQueue(queueData);
+      console.log("🔄 Loading FIELD_VERIFIED applications...");
+      
+      // Load FIELD_VERIFIED applications awaiting admin approval
+      const response = await getApplicationsByStatusApi("FIELD_VERIFIED", 1, 100);
+      
+      console.log("📦 API Response:", response);
+      console.log("📋 Response data structure:", response.data);
+      
+      // Backend returns wrapped in API response: { success: true, data: { applications: [...], pagination: {...} } }
+      const queueData = Array.isArray(response.data?.data?.applications)
+        ? response.data.data.applications
+        : [];
+
+      console.log("✅ Queue Data:", queueData);
+      console.log("📊 Total applications in queue:", queueData.length);
+
+      // Sort by submission date (newest first)
+      const sortedQueue = queueData.sort(
+        (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
+      );
+
+      setApprovalsQueue(sortedQueue);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Error loading approvals:", err);
+      console.error("📍 Error details:", err.response?.data || err.message);
       toast.error("Failed to query approvals registry");
     } finally {
       setApprovalsLoading(false);
@@ -314,57 +328,56 @@ function AdminDashboardPage() {
   };
 
   const handleApprove = async (appId) => {
-    if (!remarks.trim()) {
+    const appRemarks = remarks[appId] || "";
+    if (!appRemarks.trim()) {
       toast.error("Decisions require tracking remarks.");
       return;
     }
     try {
-      setActionLoading(true);
-      await approveApi(appId, { remarks });
-      toast.success("Application approved successfully!");
-      setRemarks("");
+      setActionLoadingId(appId);
+      // Step 1: Approve the application
+      await approveApi(appId, { remarks: appRemarks });
+      toast.success("Application approved!");
+      
+      // Step 2: Immediately release payment (disburse money)
+      try {
+        await api.post(`/payments/release/${appId}`);
+        toast.success("Direct Benefit Transfer (DBT) released! 🎉");
+      } catch (paymentErr) {
+        console.error("Payment error:", paymentErr);
+        toast.error("Application approved but payment disbursement had an issue. Check manually.");
+      }
+      
+      // Reset and reload
+      setRemarks({ ...remarks, [appId]: "" });
       loadApprovalsQueue();
       load();
     } catch (err) {
       console.error(err);
-      toast.error("Verification clearance failed");
+      toast.error(err?.response?.data?.message || "Approval failed");
     } finally {
-      setActionLoading(false);
+      setActionLoadingId(null);
     }
   };
 
   const handleReject = async (appId) => {
-    if (!remarks.trim()) {
+    const appRemarks = remarks[appId] || "";
+    if (!appRemarks.trim()) {
       toast.error("Decisions require tracking remarks.");
       return;
     }
     try {
-      setActionLoading(true);
-      await rejectApi(appId, { remarks });
-      toast.success("Application rejected.");
-      setRemarks("");
+      setActionLoadingId(appId);
+      await rejectApi(appId, { remarks: appRemarks });
+      toast.success("Application rejected. Citizen will be notified.");
+      setRemarks({ ...remarks, [appId]: "" });
       loadApprovalsQueue();
       load();
     } catch (err) {
       console.error(err);
-      toast.error("Verification clearance failed");
+      toast.error(err?.response?.data?.message || "Rejection failed");
     } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReleasePayment = async (appId) => {
-    try {
-      setActionLoading(true);
-      await api.post(`/payments/release/${appId}`);
-      toast.success("Direct Benefit Transfer (DBT) released! 🎉");
-      loadApprovalsQueue();
-      load();
-    } catch (err) {
-      console.error(err);
-      toast.error("Disbursal released failed. Check bank ledger mapping.");
-    } finally {
-      setActionLoading(false);
+      setActionLoadingId(null);
     }
   };
 
@@ -756,42 +769,56 @@ function AdminDashboardPage() {
 
                       {/* Decisive trigger controls directly connected to verified statuses */}
                       <div className="flex flex-col gap-3.5 shrink-0 w-full md:w-auto">
-                        {item.status === "VERIFIED" ? (
+                        {item.status === "FIELD_VERIFIED" ? (
                           <div className="space-y-3">
                             <input
-                              value={remarks}
-                              onChange={(e) => setRemarks(e.target.value)}
-                              placeholder="Write review remarks (required)"
+                              value={remarks[item._id] || ""}
+                              onChange={(e) =>
+                                setRemarks({ ...remarks, [item._id]: e.target.value })
+                              }
+                              placeholder="Write approval remarks (required)"
                               className="w-full md:w-64 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
                             />
                             
-                            <div className="flex gap-2">
+                            <div className="flex gap-3 flex-col sm:flex-row">
                               <button
                                 onClick={() => handleApprove(item._id)}
-                                disabled={actionLoading}
-                                className="w-1/2 md:w-32 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] uppercase py-2.5 shadow transition cursor-pointer"
+                                disabled={actionLoadingId === item._id}
+                                className="flex-1 sm:flex-auto rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-600 text-white font-black text-xs uppercase py-3.5 shadow-lg shadow-emerald-500/30 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2 border border-emerald-400/20 hover:border-emerald-300/40"
                               >
-                                Final Approve
+                                {actionLoadingId === item._id ? (
+                                  <>
+                                    <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle size={16} />
+                                    Approve & Disburse
+                                  </>
+                                )}
                               </button>
                               <button
                                 onClick={() => handleReject(item._id)}
-                                disabled={actionLoading}
-                                className="w-1/2 md:w-32 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-[10px] uppercase py-2.5 shadow transition cursor-pointer"
+                                disabled={actionLoadingId === item._id}
+                                className="flex-1 sm:flex-auto rounded-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-black text-xs uppercase py-3.5 shadow-lg shadow-red-500/30 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2 border border-red-400/20 hover:border-red-300/40"
                               >
-                                Reject File
+                                {actionLoadingId === item._id ? (
+                                  <>
+                                    <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle size={16} />
+                                    Reject Application
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>
-                        ) : item.status === "APPROVED" ? (
-                          <button
-                            onClick={() => handleReleasePayment(item._id)}
-                            disabled={actionLoading}
-                            className="w-full md:w-64 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-extrabold text-[10px] uppercase py-3.5 shadow-md flex items-center justify-center gap-1.5 transition cursor-pointer"
-                          >
-                            <DollarSign size={13} /> Release DBT Payment
-                          </button>
                         ) : (
-                          <span className="text-xs font-bold text-slate-400">Clear & Logged</span>
+                          <span className="text-xs font-bold text-slate-400">✓ Processed</span>
                         )}
                       </div>
                     </div>

@@ -77,11 +77,24 @@ function OfficerDashboardPage() {
 
     try {
       const resp = await getApplicationByIdApi(searchId);
-      setApplication(resp.data.data);
-      toast.success("Application pulled successfully");
+      if (resp.data.data) {
+        setApplication(resp.data.data);
+        toast.success("Application pulled successfully");
+      } else {
+        toast.error("Application not found. Please verify the ID.");
+      }
     } catch (err) {
-      console.error(err);
-      toast.error("Application not found or access denied");
+      console.error("Fidelity lookup error:", err);
+      const errorMsg = err?.response?.data?.message || "Application not found or access denied";
+      
+      // Provide more specific error messages
+      if (err?.response?.status === 404) {
+        toast.error("❌ Application not found. Check the ID and try again.");
+      } else if (err?.response?.status === 403) {
+        toast.error("❌ Access denied. You don't have permission to view this application.");
+      } else {
+        toast.error(`❌ ${errorMsg}`);
+      }
     }
   };
 

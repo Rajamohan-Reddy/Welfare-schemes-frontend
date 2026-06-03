@@ -11,3 +11,7 @@ export const getMyApplicationsApi = async () => {
 export const getApplicationByIdApi = async (id) => {
   return await api.get(`/applications/${id}`);
 };
+
+export const getApplicationTimelineApi = async (applicationId) => {
+  return await api.get(`/application-tracking/${applicationId}/timeline`);
+};

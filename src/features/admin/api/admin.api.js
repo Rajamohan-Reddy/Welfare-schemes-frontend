@@ -23,3 +23,15 @@ export const updateUserStatusApi = async (id, isActive) => {
 export const getAllUsersApi = async (params = {}) => {
   return await api.get("/users", { params });
 };
+
+/**
+ * Get applications by status for admin approval/action queue
+ * @param {string} status - Application status (e.g., 'FIELD_VERIFIED', 'APPROVED')
+ * @param {number} page - Page number
+ * @param {number} limit - Items per page
+ */
+export const getApplicationsByStatusApi = async (status, page = 1, limit = 20) => {
+  return await api.get("/admin/applications", {
+    params: { status, page, limit },
+  });
+};

@@ -66,7 +66,7 @@ export default function useNotifications(pollInterval = 30000) {
     try {
       await markNotificationReadApi(id);
       setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, read: true } : n)),
+        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)),
       );
     } catch (err) {
       console.error(err);
@@ -87,7 +87,7 @@ export default function useNotifications(pollInterval = 30000) {
   const markAllRead = async () => {
     try {
       await markAllReadApi();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       toast.success("All notifications marked as read");
     } catch (err) {
       console.error(err);
@@ -106,7 +106,7 @@ export default function useNotifications(pollInterval = 30000) {
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return {
     notifications,

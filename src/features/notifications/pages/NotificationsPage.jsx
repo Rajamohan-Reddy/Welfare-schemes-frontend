@@ -49,7 +49,7 @@ function NotificationsPage() {
     try {
       await markNotificationReadApi(id);
       setNotifications((prev) =>
-        prev.map((item) => (item._id === id ? { ...item, read: true } : item)),
+        prev.map((item) => (item._id === id ? { ...item, isRead: true } : item)),
       );
       toast.success("Notification marked as read");
     } catch (error) {
@@ -61,7 +61,7 @@ function NotificationsPage() {
   const handleMarkAll = async () => {
     try {
       await markAllReadApi();
-      setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
       toast.success("All notifications marked read");
     } catch (error) {
       console.error(error);
@@ -116,12 +116,12 @@ function NotificationsPage() {
   };
 
   const filteredNotifications = notifications.filter((item) => {
-    if (filter === "unread") return !item.read;
-    if (filter === "read") return item.read;
+    if (filter === "unread") return !item.isRead;
+    if (filter === "read") return item.isRead;
     return true;
   });
 
-  const unreadCount = notifications.filter((item) => !item.read).length;
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-1">
@@ -220,7 +220,7 @@ function NotificationsPage() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.25, delay: idx * 0.05 }}
                       className={`group rounded-3xl border p-5 shadow-sm hover:shadow transition-all ${
-                        item.read ? "border-slate-100 bg-white" : "border-indigo-100 bg-indigo-50/30"
+                        item.isRead ? "border-slate-100 bg-white" : "border-indigo-100 bg-indigo-50/30"
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row gap-4 items-start justify-between">
@@ -233,9 +233,9 @@ function NotificationsPage() {
                           <div className="space-y-1.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                item.read ? "bg-slate-100 text-slate-500" : "bg-indigo-600 text-white"
+                                item.isRead ? "bg-slate-100 text-slate-500" : "bg-indigo-600 text-white"
                               }`}>
-                                {item.read ? "Archive" : "New"}
+                                {item.isRead ? "Archive" : "New"}
                               </span>
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 {new Date(item.createdAt).toLocaleString()}
@@ -248,7 +248,7 @@ function NotificationsPage() {
 
                         {/* Event action controls */}
                         <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
-                          {!item.read && (
+                          {!item.isRead && (
                             <button
                               onClick={() => handleMarkRead(item._id)}
                               className="h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white px-3 text-xs font-bold shadow-md transition"

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { loginApi } from "../api/auth.api";
 import { setAccessToken, setUser } from "../../../utils/storage";
 import { ROUTES } from "../../../constants/routes";
+import { getMyProfileApi } from "../../citizen/api/profile.api";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -33,14 +34,37 @@ function LoginPage() {
       const response = await loginApi(form);
       const user = response.data.user;
       const token = response.data.accessToken;
-      setUser(user);
+      
+      // Fetch full profile to get profileImage
+      try {
+        const profileResp = await getMyProfileApi();
+        const fullProfile = { ...user, profileImage: profileResp.data.data?.profileImage };
+        setUser(fullProfile);
+      } catch (err) {
+        // If profile fetch fails, just use login response
+        setUser(user);
+      }
+      
       setAccessToken(token);
       toast.success("Welcome back, " + user.firstName);
       if (user.role === "ADMIN") navigate(ROUTES.ADMIN_DASHBOARD);
       else if (user.role === "OFFICER") navigate(ROUTES.OFFICER_DASHBOARD);
       else navigate(ROUTES.CITIZEN_DASHBOARD);
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Authentication failed");
+      const errorMsg = error?.response?.data?.message?.toLowerCase() || "";
+      let displayMessage = "Authentication failed";
+      
+      if (errorMsg.includes("invalid") || errorMsg.includes("incorrect")) {
+        displayMessage = "❌ Invalid email/mobile or password";
+      } else if (errorMsg.includes("not found") || errorMsg.includes("does not exist")) {
+        displayMessage = "❌ User account not found";
+      } else if (errorMsg.includes("inactive")) {
+        displayMessage = "❌ Your account is inactive";
+      } else if (errorMsg) {
+        displayMessage = error?.response?.data?.message || "Authentication failed";
+      }
+      
+      toast.error(displayMessage, { duration: 4000 });
     } finally {
       setLoading(false);
     }

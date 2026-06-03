@@ -13,18 +13,27 @@ import {
   Calendar,
   Activity,
   Award,
+  Loader2,
+  Building2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { getUser } from "../../../utils/storage";
 import QuickActionCard from "../../../components/dashboard/QuickActionCard";
 import SectionCard from "../../../components/dashboard/SectionCard";
 import { ROUTES } from "../../../constants/routes";
+import { getMyApplicationsApi, getApplicationTimelineApi } from "../../schemes/api/applications.api";
 
 function CitizenDashboardPage() {
   const navigate = useNavigate();
   const user = getUser();
   const now = new Date();
+  const [applications, setApplications] = useState([]);
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  const [timeline, setTimeline] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
   const currentDate = now.toLocaleDateString("en-IN", {
     weekday: "short",
@@ -43,6 +52,67 @@ function CitizenDashboardPage() {
     if (hour < 12) return "Good Morning";
     if (hour < 17) return "Good Afternoon";
     return "Good Evening";
+  };
+
+  // Load applications on mount
+  useEffect(() => {
+    loadApplications();
+  }, []);
+
+  // Load timeline when selected application changes
+  useEffect(() => {
+    if (selectedApplicationId) {
+      loadTimeline(selectedApplicationId);
+    }
+  }, [selectedApplicationId]);
+
+  const loadApplications = async () => {
+    try {
+      const resp = await getMyApplicationsApi();
+      const apps = Array.isArray(resp.data?.data) ? resp.data.data : [];
+      setApplications(apps);
+      if (apps.length > 0) {
+        setSelectedApplicationId(apps[0]._id);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load applications");
+    }
+  };
+
+  const loadTimeline = async (appId) => {
+    try {
+      setTimelineLoading(true);
+      const resp = await getApplicationTimelineApi(appId);
+      const timelineData = Array.isArray(resp.data?.data) ? resp.data.data : [];
+      setTimeline(timelineData);
+    } catch (err) {
+      console.error(err);
+      // Fallback to empty timeline on error
+      setTimeline([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
+  // Get status icon and color
+  const getStatusIcon = (status) => {
+    const statusMap = {
+      SUBMITTED: { icon: FileCheck, color: "blue" },
+      UNDER_REVIEW: { icon: Clock3, color: "amber" },
+      DOCUMENT_VERIFIED: { icon: CheckCircle2, color: "green" },
+      FIELD_VERIFIED: { icon: BadgeCheck, color: "indigo" },
+      APPROVED: { icon: CheckCircle2, color: "emerald" },
+      PAYMENT_PENDING: { icon: Wallet, color: "orange" },
+      PAID: { icon: CheckCircle2, color: "green" },
+      REJECTED: { icon: ArrowRight, color: "red" },
+    };
+    return statusMap[status] || { icon: Activity, color: "slate" };
+  };
+
+  // Format status for display
+  const formatStatus = (status) => {
+    return status?.replace(/_/g, " ") || "Unknown Status";
   };
 
   const actions = [
@@ -216,22 +286,73 @@ function CitizenDashboardPage() {
 
       {/* Application Timeline Journey */}
       <SectionCard title="Case Decision Journey">
-        <div className="rounded-[28px] border border-slate-100 bg-slate-50/50 p-6 space-y-6">
-          <TimelineItem
-            icon={CheckCircle2}
-            title="File Submitted & Logged"
-            description="YSR Pension Kanuka - Identity verified via Aadhaar vault"
-            color="green"
-            date="Logged: Yesterday"
-          />
-          <TimelineItem
-            icon={Clock3}
-            title="Caseload Under Officer Evaluation"
-            description="Document review checkpoint in progress at Mandal desk"
-            color="amber"
-            date="Status: Processing"
-            active
-          />
+        <div className="space-y-6">
+          {/* Application selector with scheme name */}
+          {applications.length > 0 && (
+            <div>
+              <div className="mb-4 p-4 rounded-[20px] bg-blue-50 border border-blue-100">
+                {selectedApplicationId && applications.find(a => a._id === selectedApplicationId) && (
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-blue-600" />
+                    <p className="text-sm font-semibold text-blue-900">
+                      Scheme: {applications.find(a => a._id === selectedApplicationId)?.schemeId?.schemeName || "Unknown Scheme"}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {applications.map((app) => (
+                  <button
+                    key={app._id}
+                    onClick={() => setSelectedApplicationId(app._id)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                      selectedApplicationId === app._id
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {app.applicationNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Timeline display */}
+          <div className="rounded-[28px] border border-slate-100 bg-slate-50/50 p-6">
+            {/* Progress bar showing application status */}
+            {selectedApplicationId && applications.find(a => a._id === selectedApplicationId) && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Processing Progress</h4>
+                <div className="flex items-center gap-2">
+                  {["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED", "PAID"].map((status, idx) => {
+                    const currentApp = applications.find(a => a._id === selectedApplicationId);
+                    const statusOrder = ["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED", "PAID"];
+                    const currentStatusIdx = statusOrder.indexOf(currentApp?.status);
+                    const isCompleted = currentStatusIdx >= idx;
+                    const isCurrent = currentStatusIdx === idx;
+                    
+                    return (
+                      <div key={status} className="flex items-center gap-2 flex-1">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition ${
+                          isCompleted ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
+                        } ${isCurrent ? "ring-2 ring-emerald-300" : ""}`}>
+                          {isCompleted ? "✓" : idx + 1}
+                        </div>
+                        {idx < 4 && <div className={`flex-1 h-1 rounded-full transition ${isCompleted ? "bg-emerald-500" : "bg-slate-200"}`} />}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">{applications.find(a => a._id === selectedApplicationId)?.status.replace(/_/g, " ")}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED", "PAID"].indexOf(applications.find(a => a._id === selectedApplicationId)?.status) + 1} of 5
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </SectionCard>
     </div>
