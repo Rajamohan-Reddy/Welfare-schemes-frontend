@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Fingerprint, Loader2 } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+  Fingerprint,
+  Loader2,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -15,13 +24,19 @@ function LoginPage() {
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({ identifier: "", password: "" });
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
 
   const validateLogin = () => {
     const nextErrors = {};
-    if (!form.identifier.trim()) nextErrors.identifier = "Email or mobile number is required.";
+    if (!form.identifier.trim())
+      nextErrors.identifier = "Email or mobile number is required.";
     if (!form.password) nextErrors.password = "Password is required.";
-    else if (form.password.length < 8) nextErrors.password = "Password must be at least 8 characters.";
+    else if (form.password.length < 8)
+      nextErrors.password = "Password must be at least 8 characters.";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -32,38 +47,53 @@ function LoginPage() {
     try {
       setLoading(true);
       const response = await loginApi(form);
-      const user = response.data.user;
-      const token = response.data.accessToken;
-      
-      // Fetch full profile to get profileImage
+      // Support multiple response shapes: { data: { data: { accessToken, user } } } or { data: { accessToken, user } }
+      const responseData = response?.data ?? response;
+      const payload = responseData?.data ?? responseData;
+      const token =
+        payload?.accessToken ?? payload?.token ?? responseData?.accessToken;
+      const user = payload?.user ?? responseData?.user ?? payload;
+
+      if (!token || !user) {
+        throw new Error("Invalid login response from server");
+      }
+
+      setAccessToken(token);
+
+      // Fetch full profile after token is available so subsequent requests are authenticated
       try {
         const profileResp = await getMyProfileApi();
-        const fullProfile = { ...user, profileImage: profileResp.data.data?.profileImage };
+        const fullProfile = {
+          ...user,
+          profileImage: profileResp?.data?.data?.profileImage,
+        };
         setUser(fullProfile);
       } catch (err) {
-        // If profile fetch fails, just use login response
         setUser(user);
       }
-      
-      setAccessToken(token);
-      toast.success("Welcome back, " + user.firstName);
+
+      toast.success("Welcome back, " + (user.firstName || "User"));
       if (user.role === "ADMIN") navigate(ROUTES.ADMIN_DASHBOARD);
       else if (user.role === "OFFICER") navigate(ROUTES.OFFICER_DASHBOARD);
       else navigate(ROUTES.CITIZEN_DASHBOARD);
     } catch (error) {
       const errorMsg = error?.response?.data?.message?.toLowerCase() || "";
       let displayMessage = "Authentication failed";
-      
+
       if (errorMsg.includes("invalid") || errorMsg.includes("incorrect")) {
         displayMessage = "❌ Invalid email/mobile or password";
-      } else if (errorMsg.includes("not found") || errorMsg.includes("does not exist")) {
+      } else if (
+        errorMsg.includes("not found") ||
+        errorMsg.includes("does not exist")
+      ) {
         displayMessage = "❌ User account not found";
       } else if (errorMsg.includes("inactive")) {
         displayMessage = "❌ Your account is inactive";
       } else if (errorMsg) {
-        displayMessage = error?.response?.data?.message || "Authentication failed";
+        displayMessage =
+          error?.response?.data?.message || "Authentication failed";
       }
-      
+
       toast.error(displayMessage, { duration: 4000 });
     } finally {
       setLoading(false);
@@ -99,7 +129,10 @@ function LoginPage() {
                 : "border-slate-200 bg-slate-50/70 focus-within:border-blue-500 focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]"
             }`}
           >
-            <Mail size={15} className="shrink-0 text-slate-400 group-focus-within:text-blue-500 transition mr-3" />
+            <Mail
+              size={15}
+              className="shrink-0 text-slate-400 group-focus-within:text-blue-500 transition mr-3"
+            />
             <input
               id="login-identifier"
               name="identifier"
@@ -124,7 +157,10 @@ function LoginPage() {
             <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
               Password
             </label>
-            <Link to="/forgot-password" className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition">
+            <Link
+              to="/forgot-password"
+              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition"
+            >
               Forgot password?
             </Link>
           </div>
@@ -135,7 +171,10 @@ function LoginPage() {
                 : "border-slate-200 bg-slate-50/70 focus-within:border-blue-500 focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]"
             }`}
           >
-            <Lock size={15} className="shrink-0 text-slate-400 group-focus-within:text-blue-500 transition mr-3" />
+            <Lock
+              size={15}
+              className="shrink-0 text-slate-400 group-focus-within:text-blue-500 transition mr-3"
+            />
             <input
               id="login-password"
               name="password"
@@ -177,7 +216,10 @@ function LoginPage() {
           ) : (
             <>
               Sign In to Portal
-              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight
+                size={16}
+                className="group-hover:translate-x-0.5 transition-transform"
+              />
             </>
           )}
         </button>
@@ -192,7 +234,10 @@ function LoginPage() {
         <div className="pt-4 border-t border-slate-100 text-center">
           <p className="text-[13px] text-slate-500">
             New to the portal?{" "}
-            <Link to="/register" className="font-bold text-blue-600 hover:text-blue-800 transition hover:underline">
+            <Link
+              to="/register"
+              className="font-bold text-blue-600 hover:text-blue-800 transition hover:underline"
+            >
               Create your account →
             </Link>
           </p>

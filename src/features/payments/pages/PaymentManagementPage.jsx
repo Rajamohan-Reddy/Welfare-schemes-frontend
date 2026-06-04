@@ -51,19 +51,19 @@ function PaymentManagementPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       // Load payments
       let paymentsList = [];
       try {
         console.log("🔄 Fetching payments...");
         const paymentsResp = await getPaymentsApi();
         console.log("📦 Payments response:", paymentsResp);
-        
+
         paymentsList = Array.isArray(paymentsResp.data?.data)
           ? paymentsResp.data.data
           : Array.isArray(paymentsResp.data)
-          ? paymentsResp.data
-          : [];
+            ? paymentsResp.data
+            : [];
         console.log("✅ Payments loaded:", paymentsList.length, "items");
       } catch (paymentErr) {
         console.error("❌ Error loading payments:", paymentErr);
@@ -77,7 +77,7 @@ function PaymentManagementPage() {
         console.log("🔄 Fetching analytics...");
         const analyticsResp = await getPaymentsAnalyticsApi();
         console.log("📦 Analytics response:", analyticsResp);
-        
+
         analyticsData = analyticsResp.data?.data || {};
         console.log("✅ Analytics loaded");
       } catch (analyticsErr) {
@@ -85,8 +85,23 @@ function PaymentManagementPage() {
         analyticsData = {};
       }
 
+      const derivedAnalytics = {
+        totalPayments: paymentsList.length,
+        successfulPayments: paymentsList.filter(
+          (payment) => payment.paymentStatus === "SUCCESS",
+        ).length,
+        totalDisbursed: paymentsList.reduce(
+          (total, payment) =>
+            total +
+            (payment.paymentStatus === "SUCCESS"
+              ? Number(payment.amount || 0)
+              : 0),
+          0,
+        ),
+      };
+
       setPayments(paymentsList);
-      setAnalytics(analyticsData);
+      setAnalytics({ ...analyticsData, ...derivedAnalytics });
     } catch (err) {
       console.error("Error in loadData:", err);
       toast.error("Failed to load payment data");
@@ -104,7 +119,7 @@ function PaymentManagementPage() {
 
   const paginatedPayments = filteredPayments.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
@@ -112,7 +127,14 @@ function PaymentManagementPage() {
   const handleDownloadReport = async () => {
     try {
       const csvData = [
-        ["Payment ID", "Application ID", "Amount", "Status", "Date", "Processed By"],
+        [
+          "Payment ID",
+          "Application ID",
+          "Amount",
+          "Status",
+          "Date",
+          "Processed By",
+        ],
         ...payments.map((p) => [
           p._id,
           p.applicationId,
@@ -161,7 +183,9 @@ function PaymentManagementPage() {
         {/* Hero Section - Apple Style */}
         <div className="mb-12">
           <h1 className="text-5xl font-bold text-gray-900 mb-2">Payments</h1>
-          <p className="text-lg text-gray-600">Track and manage all welfare disbursements with precision</p>
+          <p className="text-lg text-gray-600">
+            Track and manage all welfare disbursements with precision
+          </p>
         </div>
 
         {/* Analytics Cards - Apple Premium Style */}
@@ -171,7 +195,9 @@ function PaymentManagementPage() {
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-3xl p-8 border border-green-200 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-green-700 text-sm font-semibold mb-2">Total Disbursed</p>
+                  <p className="text-green-700 text-sm font-semibold mb-2">
+                    Total Disbursed
+                  </p>
                   <h2 className="text-4xl font-bold text-green-900 mb-3">
                     ₹{(analytics.totalDisbursed || 0).toLocaleString("en-IN")}
                   </h2>
@@ -190,9 +216,15 @@ function PaymentManagementPage() {
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl p-8 border border-blue-200 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-blue-700 text-sm font-semibold mb-2">Total Payments</p>
-                  <h2 className="text-4xl font-bold text-blue-900 mb-3">{analytics.totalPayments || 0}</h2>
-                  <div className="text-blue-700 text-sm">All payment records</div>
+                  <p className="text-blue-700 text-sm font-semibold mb-2">
+                    Total Payments
+                  </p>
+                  <h2 className="text-4xl font-bold text-blue-900 mb-3">
+                    {analytics.totalPayments || 0}
+                  </h2>
+                  <div className="text-blue-700 text-sm">
+                    All payment records
+                  </div>
                 </div>
                 <div className="bg-white rounded-full p-4 shadow-md">
                   <Check className="w-6 h-6 text-blue-600" />
@@ -204,12 +236,15 @@ function PaymentManagementPage() {
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-3xl p-8 border border-purple-200 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-purple-700 text-sm font-semibold mb-2">Average Payment</p>
+                  <p className="text-purple-700 text-sm font-semibold mb-2">
+                    Average Payment
+                  </p>
                   <h2 className="text-4xl font-bold text-purple-900 mb-3">
                     ₹
                     {analytics.totalPayments > 0
                       ? Math.round(
-                          (analytics.totalDisbursed || 0) / (analytics.totalPayments || 1)
+                          (analytics.totalDisbursed || 0) /
+                            (analytics.totalPayments || 1),
                         ).toLocaleString("en-IN")
                       : "0"}
                   </h2>
@@ -222,87 +257,6 @@ function PaymentManagementPage() {
             </div>
           </div>
         )}
-
-        {/* Status Distribution Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
-          {/* Status Pie Chart */}
-          <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Payment Status Distribution</h3>
-              <Filter className="w-5 h-5 text-gray-400" />
-            </div>
-            {payments.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      {
-                        name: "Successful",
-                        value: payments.filter((p) => p.paymentStatus === "SUCCESS").length,
-                      },
-                      {
-                        name: "Failed",
-                        value: payments.filter((p) => p.paymentStatus === "FAILED").length,
-                      },
-                      {
-                        name: "Pending",
-                        value: payments.filter((p) => p.paymentStatus === "PENDING").length,
-                      },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {[0, 1, 2].map((index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS_APPLE[index]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => value.toLocaleString()} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-80 flex items-center justify-center text-gray-400">
-                No data available
-              </div>
-            )}
-          </div>
-
-          {/* Recent Status Summary */}
-          <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-shadow">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Status Summary</h3>
-            <div className="space-y-4">
-              {[
-                {
-                  label: "Successful",
-                  value: payments.filter((p) => p.paymentStatus === "SUCCESS").length,
-                  color: "text-green-600",
-                  bgColor: "bg-green-50",
-                },
-                {
-                  label: "Failed",
-                  value: payments.filter((p) => p.paymentStatus === "FAILED").length,
-                  color: "text-red-600",
-                  bgColor: "bg-red-50",
-                },
-                {
-                  label: "Pending",
-                  value: payments.filter((p) => p.paymentStatus === "PENDING").length,
-                  color: "text-orange-600",
-                  bgColor: "bg-orange-50",
-                },
-              ].map((item, idx) => (
-                <div key={idx} className={`${item.bgColor} rounded-2xl p-4 flex items-center justify-between`}>
-                  <span className="text-gray-700 font-semibold">{item.label}</span>
-                  <span className={`text-2xl font-bold ${item.color}`}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {/* Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -388,15 +342,17 @@ function PaymentManagementPage() {
                             payment.paymentStatus === "SUCCESS"
                               ? "bg-green-100 text-green-700"
                               : payment.paymentStatus === "FAILED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-orange-100 text-orange-700"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-orange-100 text-orange-700"
                           }`}
                         >
                           {payment.paymentStatus || "UNKNOWN"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(payment.paymentDate).toLocaleDateString("en-IN")}
+                        {new Date(payment.paymentDate).toLocaleDateString(
+                          "en-IN",
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {payment.paymentStatus === "PENDING" ? (
@@ -406,7 +362,9 @@ function PaymentManagementPage() {
                           </button>
                         ) : (
                           <span className="text-gray-400 text-xs">
-                            {payment.paymentStatus === "SUCCESS" ? "Completed" : "Failed"}
+                            {payment.paymentStatus === "SUCCESS"
+                              ? "Completed"
+                              : "Failed"}
                           </span>
                         )}
                       </td>
@@ -414,7 +372,10 @@ function PaymentManagementPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-400">
+                    <td
+                      colSpan="6"
+                      className="px-6 py-12 text-center text-gray-400"
+                    >
                       No payments found
                     </td>
                   </tr>
@@ -439,7 +400,9 @@ function PaymentManagementPage() {
                   Previous
                 </Button>
                 <Button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   disabled={currentPage === totalPages}
                   variant="outline"
                   className="text-xs px-4 py-2 rounded-xl border-gray-300"
