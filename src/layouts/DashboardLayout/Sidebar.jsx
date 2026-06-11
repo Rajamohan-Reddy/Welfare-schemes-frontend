@@ -17,11 +17,11 @@ import {
 
 import { NavLink } from "react-router-dom";
 
-import { getUser } from "../../utils/storage";
+import useAuth from "../../hooks/useAuth";
 import Logo from "../../assets/images/ap-logo.png";
 
 function Sidebar({ expanded, setExpanded }) {
-  const user = getUser();
+  const { user } = useAuth();
 
   const menuItems = useMemo(() => {
     if (!user) return [];

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   CheckCircle2,
@@ -15,7 +15,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-import { getAllSchemesApi } from "../api/schemes.api";
+import { useGetAllSchemesQuery } from "../../../store/services/schemes.api";
 
 const categoryIcons = {
   EDUCATION: GraduationCap,
@@ -27,10 +27,7 @@ const categoryIcons = {
 
 function EligibilityCheckerPage() {
   const navigate = useNavigate();
-
-  const [schemes, setSchemes] = useState([]);
-
-  const [loading, setLoading] = useState(true);
+  const { data: schemes = [], isLoading: loading } = useGetAllSchemesQuery();
 
   const [form, setForm] = useState({
     age: "",
@@ -49,22 +46,6 @@ function EligibilityCheckerPage() {
 
     disabled: false,
   });
-
-  useEffect(() => {
-    loadSchemes();
-  }, []);
-
-  const loadSchemes = async () => {
-    try {
-      const response = await getAllSchemesApi();
-
-      setSchemes(response.data.data || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const eligibleSchemes = useMemo(() => {
     return schemes.filter((scheme) => {

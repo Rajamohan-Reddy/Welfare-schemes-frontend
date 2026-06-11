@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   FileText,
@@ -15,42 +15,32 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-import { getMyApplicationsApi } from "../api/applications.api";
+import { useGetMyApplicationsQuery } from "../../../store/services/applications.api";
+import {
+  getApplicationProgress,
+  getStageLabel,
+  normalizeApplicationStatus,
+} from "../../../utils/applicationStatus";
 
 function MyApplicationsPage() {
   const navigate = useNavigate();
-
-  const [loading, setLoading] = useState(true);
-  const [applications, setApplications] = useState([]);
+  const { data: applications = [], isLoading: loading } =
+    useGetMyApplicationsQuery();
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    loadApplications();
-  }, []);
-
-  const loadApplications = async () => {
-    try {
-      setLoading(true);
-
-      const response = await getMyApplicationsApi();
-
-      setApplications(response.data.data || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getStatusConfig = (status) => {
-    switch (status) {
+    const normalized = normalizeApplicationStatus(status);
+    const progress = getApplicationProgress(status);
+    const label = getStageLabel(status);
+
+    switch (normalized) {
       case "SUBMITTED":
         return {
           color: "from-amber-400 to-amber-500",
           badge: "bg-amber-50 text-amber-700 border border-amber-200",
           icon: Clock3,
-          progress: 25,
-          label: "Submitted",
+          progress,
+          label,
         };
 
       case "DOCUMENT_VERIFIED":
@@ -58,8 +48,8 @@ function MyApplicationsPage() {
           color: "from-sky-500 to-sky-600",
           badge: "bg-sky-50 text-sky-700 border border-sky-200",
           icon: ShieldCheck,
-          progress: 45,
-          label: "Document Verified",
+          progress,
+          label,
         };
 
       case "FIELD_VERIFIED":
@@ -67,8 +57,8 @@ function MyApplicationsPage() {
           color: "from-violet-500 to-violet-600",
           badge: "bg-violet-50 text-violet-700 border border-violet-200",
           icon: ShieldCheck,
-          progress: 70,
-          label: "Field Verified",
+          progress,
+          label,
         };
 
       case "APPROVED":
@@ -76,8 +66,17 @@ function MyApplicationsPage() {
           color: "from-emerald-500 to-green-600",
           badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
           icon: CheckCircle2,
-          progress: 100,
-          label: "Approved",
+          progress,
+          label,
+        };
+
+      case "PAID":
+        return {
+          color: "from-teal-500 to-emerald-600",
+          badge: "bg-teal-50 text-teal-700 border border-teal-200",
+          icon: CheckCircle2,
+          progress,
+          label,
         };
 
       case "REJECTED":
@@ -85,8 +84,8 @@ function MyApplicationsPage() {
           color: "from-rose-500 to-rose-600",
           badge: "bg-rose-50 text-rose-700 border border-rose-200",
           icon: XCircle,
-          progress: 100,
-          label: "Rejected",
+          progress,
+          label,
         };
 
       default:
@@ -94,8 +93,8 @@ function MyApplicationsPage() {
           color: "from-slate-400 to-slate-500",
           badge: "bg-slate-100 text-slate-600 border border-slate-200",
           icon: Clock3,
-          progress: 15,
-          label: "Pending",
+          progress,
+          label,
         };
     }
   };

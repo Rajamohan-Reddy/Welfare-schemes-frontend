@@ -34,16 +34,27 @@ import {
   Tooltip,
 } from "recharts";
 import {
-  getAdminDashboardApi,
-  getApplicationStatusChartApi,
-  getMonthlyApplicationsChartApi,
-} from "../../dashboard/api/dashboard.api";
-import { getFieldVerifiedQueueApi, approveApi, rejectApi } from "../../verification/api/verification.api";
-import { getApplicationsByStatusApi } from "../api/admin.api";
-import { getAllCategoriesApi, createSchemeApi, createSchemeCategoryApi } from "../../schemes/api/schemes.api";
+  useGetAdminDashboardQuery,
+  useGetApplicationStatusChartQuery,
+  useGetMonthlyApplicationsChartQuery,
+  useGetDashboardAnalyticsQuery,
+} from "../../../store/services/dashboard.api";
+import { useGetRecentAuditLogsQuery } from "../../../store/services/reports.api";
+import {
+  useApproveApplicationMutation,
+  useRejectApplicationMutation,
+} from "../../../store/services/verification.api";
+import { useLazyGetApplicationsByStatusQuery } from "../../../store/services/admin.api";
+import {
+  useGetAllCategoriesQuery,
+  useCreateSchemeMutation,
+  useCreateSchemeCategoryMutation,
+} from "../../../store/services/schemes.api";
+import { useUploadFileMutation } from "../../../store/services/upload.api";
+import { useReleasePaymentMutation } from "../../../store/services/payments.api";
+import { API_BASE_URL } from "../../../store/services/baseApi";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
-import api from "../../../api/axios";
 import toast from "react-hot-toast";
 
 const COLORS = [
@@ -57,13 +68,32 @@ const COLORS = [
 
 function AdminDashboardPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
-  const [statusChartData, setStatusChartData] = useState([]);
-  const [monthlyChartData, setMonthlyChartData] = useState([]);
-  const [downloadLoading, setDownloadLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview"); // overview, approvals, intelligence, operations
-  
+  const {
+    data: stats = {},
+    isLoading: dashboardLoading,
+    refetch: refetchDashboard,
+  } = useGetAdminDashboardQuery();
+  const { data: statusChartData = [], isLoading: statusLoading } =
+    useGetApplicationStatusChartQuery();
+  const { data: monthlyChartData = [], isLoading: monthlyLoading } =
+    useGetMonthlyApplicationsChartQuery();
+  const { data: analytics, isLoading: analyticsLoading } =
+    useGetDashboardAnalyticsQuery(undefined, { skip: activeTab !== "intelligence" });
+  const { data: recentAuditLogs = [], isLoading: auditLogsLoading } =
+    useGetRecentAuditLogsQuery(undefined, { skip: activeTab !== "intelligence" });
+  const [fetchApplicationsByStatus] = useLazyGetApplicationsByStatusQuery();
+  const { data: schemeCategories = [], refetch: refetchCategories } =
+    useGetAllCategoriesQuery();
+  const [createScheme] = useCreateSchemeMutation();
+  const [createSchemeCategory] = useCreateSchemeCategoryMutation();
+  const [uploadFile] = useUploadFileMutation();
+  const [approveApplication] = useApproveApplicationMutation();
+  const [rejectApplication] = useRejectApplicationMutation();
+  const [releasePayment] = useReleasePaymentMutation();
+  const loading = dashboardLoading || statusLoading || monthlyLoading;
+  const [downloadLoading, setDownloadLoading] = useState(false);
+
   // Real-life approvals queues
   const [approvalsQueue, setApprovalsQueue] = useState([]);
   const [approvalsLoading, setApprovalsLoading] = useState(false);
@@ -74,7 +104,6 @@ function AdminDashboardPage() {
   const [operationType, setOperationType] = useState(null);
   const [operationSubmitting, setOperationSubmitting] = useState(false);
   const [operationErrors, setOperationErrors] = useState({});
-  const [schemeCategories, setSchemeCategories] = useState([]);
   const [schemeForm, setSchemeForm] = useState({
     schemeCode: "",
     schemeName: "",
@@ -100,83 +129,47 @@ function AdminDashboardPage() {
   });
 
   useEffect(() => {
-    load();
-  }, []);
-
-  const load = async () => {
-    try {
-      setLoading(true);
-      const [dashboardResp, statusResp, monthlyResp] = await Promise.all([
-        getAdminDashboardApi(),
-        getApplicationStatusChartApi(),
-        getMonthlyApplicationsChartApi(),
-      ]);
-
-      setStats(dashboardResp.data.data || {});
-      setStatusChartData(statusResp.data.data || []);
-      setMonthlyChartData(monthlyResp.data.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error("Unable to load admin analytics");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Dynamically load verified files queue for admin approvals
-  useEffect(() => {
     if (activeTab === "approvals") {
       loadApprovalsQueue();
     }
   }, [activeTab]);
 
+  const load = () => {
+    refetchDashboard();
+    refetchCategories();
+  };
+
   const loadApprovalsQueue = async () => {
     try {
       setApprovalsLoading(true);
-      console.log("🔄 Loading FIELD_VERIFIED applications...");
-      
-      // Load FIELD_VERIFIED applications awaiting admin approval
-      const response = await getApplicationsByStatusApi("FIELD_VERIFIED", 1, 100);
-      
-      console.log("📦 API Response:", response);
-      console.log("📋 Response data structure:", response.data);
-      
-      // Backend returns wrapped in API response: { success: true, data: { applications: [...], pagination: {...} } }
-      const queueData = Array.isArray(response.data?.data?.applications)
-        ? response.data.data.applications
-        : [];
+      const response = await fetchApplicationsByStatus({
+        status: "FIELD_VERIFIED",
+        page: 1,
+        limit: 100,
+      }).unwrap();
 
-      console.log("✅ Queue Data:", queueData);
-      console.log("📊 Total applications in queue:", queueData.length);
+      const queueData = Array.isArray(response?.applications)
+        ? response.applications
+        : Array.isArray(response?.data?.applications)
+          ? response.data.applications
+          : [];
 
-      // Sort by submission date (newest first)
-      const sortedQueue = queueData.sort(
-        (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
+      const sortedQueue = [...queueData].sort(
+        (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt),
       );
 
       setApprovalsQueue(sortedQueue);
     } catch (err) {
       console.error("❌ Error loading approvals:", err);
-      console.error("📍 Error details:", err.response?.data || err.message);
       toast.error("Failed to query approvals registry");
     } finally {
       setApprovalsLoading(false);
     }
   };
 
-  const loadCategories = async () => {
-    try {
-      const response = await getAllCategoriesApi();
-      setSchemeCategories(response.data.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error("Unable to load scheme categories");
-    }
+  const loadCategories = () => {
+    refetchCategories();
   };
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
 
   const resetOperationForms = () => {
     setSchemeForm({
@@ -238,14 +231,8 @@ function AdminDashboardPage() {
   const uploadMediaFile = async (file) => {
     if (!file) return null;
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await api.post("/uploads/single", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-
-    return response.data.data?.fileUrl || response.data.data?.url || null;
+    const uploaded = await uploadFile({ file, documentType: "scheme-media" }).unwrap();
+    return uploaded?.fileUrl || null;
   };
 
   const benefitTypeOptions = [
@@ -303,25 +290,25 @@ function AdminDashboardPage() {
           delete payload.media;
         }
 
-        await createSchemeApi(payload);
+        await createScheme(payload).unwrap();
         toast.success("Scheme created successfully.");
         load();
       }
 
       if (operationType === "category") {
-        await createSchemeCategoryApi({
+        await createSchemeCategory({
           categoryCode: categoryForm.categoryCode,
           categoryName: categoryForm.categoryName,
           description: categoryForm.description,
-        });
+        }).unwrap();
         toast.success("Scheme category created successfully.");
-        await loadCategories();
+        loadCategories();
       }
 
       closeOperationModal();
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Unable to complete the request.");
+      toast.error(err?.data?.message || "Unable to complete the request.");
     } finally {
       setOperationSubmitting(false);
     }
@@ -336,25 +323,23 @@ function AdminDashboardPage() {
     try {
       setActionLoadingId(appId);
       // Step 1: Approve the application
-      await approveApi(appId, { remarks: appRemarks });
+      await approveApplication({ applicationId: appId, remarks: appRemarks }).unwrap();
       toast.success("Application approved!");
-      
-      // Step 2: Immediately release payment (disburse money)
+
       try {
-        await api.post(`/payments/release/${appId}`);
+        await releasePayment(appId).unwrap();
         toast.success("Direct Benefit Transfer (DBT) released! 🎉");
       } catch (paymentErr) {
         console.error("Payment error:", paymentErr);
         toast.error("Application approved but payment disbursement had an issue. Check manually.");
       }
-      
-      // Reset and reload
+
       setRemarks({ ...remarks, [appId]: "" });
       loadApprovalsQueue();
       load();
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Approval failed");
+      toast.error(err?.data?.message || "Approval failed");
     } finally {
       setActionLoadingId(null);
     }
@@ -368,14 +353,14 @@ function AdminDashboardPage() {
     }
     try {
       setActionLoadingId(appId);
-      await rejectApi(appId, { remarks: appRemarks });
+      await rejectApplication({ applicationId: appId, remarks: appRemarks }).unwrap();
       toast.success("Application rejected. Citizen will be notified.");
       setRemarks({ ...remarks, [appId]: "" });
       loadApprovalsQueue();
       load();
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Rejection failed");
+      toast.error(err?.data?.message || "Rejection failed");
     } finally {
       setActionLoadingId(null);
     }
@@ -384,13 +369,15 @@ function AdminDashboardPage() {
   const downloadApplicationsReport = async () => {
     try {
       setDownloadLoading(true);
-      const response = await api.get("/reports/applications", {
-        responseType: "blob",
+      const response = await fetch(`${API_BASE_URL}/reports/applications`, {
+        credentials: "include",
       });
 
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
+      if (!response.ok) {
+        throw new Error("Download failed");
+      }
+
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -418,6 +405,29 @@ function AdminDashboardPage() {
   const averageProcessing = useMemo(() => {
     return stats.averageProcessingDays ?? 3.4;
   }, [stats]);
+
+  const intelligenceSummary = useMemo(() => {
+    const summary = analytics?.summary || {};
+    const totalApps = summary.totalApplications || stats.totalApplications || 0;
+    const approvedApps =
+      summary.approvedApplications || stats.approvedApplications || 0;
+    const totalPayments = summary.totalPayments || 0;
+
+    return {
+      totalUsers: summary.totalUsers || stats.totalUsers || 0,
+      totalSchemes: summary.totalSchemes || stats.totalSchemes || 0,
+      totalApps,
+      approvedApps,
+      totalPayments,
+      approvalRate:
+        totalApps > 0 ? Math.round((approvedApps / totalApps) * 100) : 0,
+    };
+  }, [analytics, stats]);
+
+  const auditLogEntries = useMemo(() => {
+    if (Array.isArray(recentAuditLogs)) return recentAuditLogs;
+    return recentAuditLogs?.logs || [];
+  }, [recentAuditLogs]);
 
   const getGreeting = () => {
     const hr = new Date().getHours();
@@ -656,6 +666,234 @@ function AdminDashboardPage() {
                   </div>
                 </Card>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === "intelligence" && (
+          <motion.div
+            key="intelligence"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-8"
+          >
+            <Card className="rounded-[36px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-violet-600">
+                    Enterprise Intelligence
+                  </span>
+                  <h2 className="text-2xl font-black text-[#071A52] tracking-tight mt-0.5">
+                    Audit Signals & Performance Analytics
+                  </h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => navigate("/admin/analytics")}
+                    fullWidth={false}
+                    className="h-10 px-5 rounded-full text-xs font-bold"
+                  >
+                    Full Analytics
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => navigate("/admin/reports")}
+                    fullWidth={false}
+                    className="h-10 px-5 rounded-full text-xs font-bold"
+                  >
+                    Audit Reports
+                  </Button>
+                  <Button
+                    onClick={downloadApplicationsReport}
+                    loading={downloadLoading}
+                    fullWidth={false}
+                    className="h-10 px-5 rounded-full text-xs font-bold gap-2 bg-[#071A52] text-white hover:bg-blue-900"
+                  >
+                    <Download size={14} /> Export Sheet
+                  </Button>
+                </div>
+              </div>
+
+              {analyticsLoading ? (
+                <div className="flex justify-center items-center py-16 text-xs font-semibold text-slate-500">
+                  <Loader2 size={16} className="animate-spin text-blue-600 mr-2" />
+                  Loading intelligence metrics...
+                </div>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <GradientMetricCard
+                    title="Registered Citizens"
+                    value={intelligenceSummary.totalUsers}
+                    description="Active user profiles"
+                    icon={Users}
+                    gradient="from-blue-50/80 via-blue-100/50 to-blue-200/20 text-[#1E3A8A] border-blue-200/40"
+                  />
+                  <GradientMetricCard
+                    title="Live Schemes"
+                    value={intelligenceSummary.totalSchemes}
+                    description="Programs in circulation"
+                    icon={Layers}
+                    gradient="from-indigo-50/80 via-indigo-100/50 to-indigo-200/20 text-indigo-900 border-indigo-200/40"
+                  />
+                  <GradientMetricCard
+                    title="Approval Rate"
+                    value={`${intelligenceSummary.approvalRate}%`}
+                    description={`${intelligenceSummary.approvedApps} of ${intelligenceSummary.totalApps} approved`}
+                    icon={TrendingUp}
+                    gradient="from-emerald-50/80 via-emerald-100/50 to-emerald-200/20 text-emerald-950 border-emerald-200/40"
+                  />
+                  <GradientMetricCard
+                    title="Total Disbursed"
+                    value={`₹${intelligenceSummary.totalPayments.toLocaleString("en-IN")}`}
+                    description="Cumulative benefit payouts"
+                    icon={DollarSign}
+                    gradient="from-amber-50/80 via-amber-100/50 to-amber-200/20 text-amber-950 border-amber-200/40"
+                  />
+                </div>
+              )}
+            </Card>
+
+            <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+              <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/2">
+                <div className="border-b border-slate-100 pb-4 mb-6">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600">
+                    Volume analytics
+                  </span>
+                  <h3 className="text-xl font-extrabold text-[#071A52] tracking-tight mt-0.5">
+                    Caseload & Pipeline Trends
+                  </h3>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-5">
+                    <h4 className="text-xs font-extrabold text-[#071A52] uppercase tracking-wider mb-4">
+                      Pipeline Status
+                    </h4>
+                    <div className="h-60">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={statusChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={5}
+                          >
+                            {statusChartData.map((entry, index) => (
+                              <Cell
+                                key={entry.name}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              background: "#071A52",
+                              borderRadius: "16px",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-5">
+                    <h4 className="text-xs font-extrabold text-[#071A52] uppercase tracking-wider mb-4">
+                      Monthly Caseload
+                    </h4>
+                    <div className="h-60">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={monthlyChartData}
+                          margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                          <XAxis
+                            dataKey="month"
+                            stroke="#94A3B8"
+                            tick={{ fontSize: 9, fontWeight: "bold" }}
+                          />
+                          <YAxis
+                            stroke="#94A3B8"
+                            tick={{ fontSize: 9, fontWeight: "bold" }}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              background: "#071A52",
+                              borderRadius: "16px",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          />
+                          <Bar
+                            dataKey="applications"
+                            fill="#2563EB"
+                            radius={[6, 6, 0, 0]}
+                            barSize={20}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/2 space-y-6">
+                <div className="border-b border-slate-100 pb-4">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#FFD95A]">
+                    Compliance Feed
+                  </span>
+                  <h3 className="text-xl font-extrabold text-[#071A52] tracking-tight mt-0.5">
+                    Recent Audit Activity
+                  </h3>
+                </div>
+
+                {auditLogsLoading ? (
+                  <div className="flex justify-center items-center py-12 text-xs font-semibold text-slate-500">
+                    <Loader2 size={16} className="animate-spin text-blue-600 mr-2" />
+                    Syncing audit logs...
+                  </div>
+                ) : auditLogEntries.length === 0 ? (
+                  <div className="rounded-[28px] bg-slate-50 border border-slate-100 p-10 text-center text-slate-500 space-y-2">
+                    <Activity size={28} className="mx-auto text-slate-300" />
+                    <p className="text-sm font-semibold text-[#071A52]">No audit events yet</p>
+                    <p className="text-xs text-slate-400">
+                      Administrator and officer actions will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {auditLogEntries.slice(0, 12).map((log) => (
+                      <div
+                        key={log._id}
+                        className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-[#071A52] uppercase tracking-wide">
+                            {log.module}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold">
+                            {log.createdAt
+                              ? new Date(log.createdAt).toLocaleString("en-IN")
+                              : ""}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-slate-700">{log.action}</p>
+                        <p className="text-slate-500 leading-relaxed">{log.description}</p>
+                        {(log.performedBy?.firstName || log.performedBy?.lastName) && (
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            {log.performedBy.firstName} {log.performedBy.lastName}
+                            {log.performedBy.role ? ` · ${log.performedBy.role}` : ""}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
             </div>
           </motion.div>
         )}

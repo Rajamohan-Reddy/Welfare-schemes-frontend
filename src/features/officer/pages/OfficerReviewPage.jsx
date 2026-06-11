@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, ShieldCheck, XCircle, FileText, User, MapPin, Landmark, Eye, Download } from "lucide-react";
-import { getApplicationByIdApi } from "../../schemes/api/applications.api";
+import { ArrowLeft, CheckCircle, ShieldCheck, XCircle, FileText, User, MapPin, Landmark, Eye, Download, Loader2 } from "lucide-react";
+import { useGetApplicationByIdQuery } from "../../../store/services/applications.api";
 import {
-  documentVerifyApi,
-  fieldVerifyApi,
-} from "../../verification/api/verification.api";
+  useDocumentVerifyMutation,
+  useFieldVerifyMutation,
+} from "../../../store/services/verification.api";
+import { API_BASE_URL } from "../../../store/services/baseApi";
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import toast from "react-hot-toast";
@@ -13,53 +14,44 @@ import toast from "react-hot-toast";
 function OfficerReviewPage() {
   const { applicationId } = useParams();
   const navigate = useNavigate();
-
-  const [loading, setLoading] = useState(true);
-  const [application, setApplication] = useState(null);
+  const { data: application, isLoading: loading } =
+    useGetApplicationByIdQuery(applicationId);
+  const [documentVerify, { isLoading: documentLoading }] =
+    useDocumentVerifyMutation();
+  const [fieldVerify, { isLoading: fieldLoading }] = useFieldVerifyMutation();
   const [remarks, setRemarks] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
+  const actionLoading = documentLoading || fieldLoading;
 
-  const API_BASE_URL = "http://localhost:5000";
+  const uploadsBaseUrl = API_BASE_URL.replace("/api/v1", "");
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const load = async () => {
-    try {
-      setLoading(true);
-      const resp = await getApplicationByIdApi(applicationId);
-      setApplication(resp.data.data);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load application");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAction = async (apiCall, successMsg) => {
+  const handleAction = async (actionType, successMsg) => {
     if (!remarks.trim()) {
       toast.error("Review remarks are required to execute actions.");
       return;
     }
 
-    // Gate check: Field verification requires document verification to be completed first
-    if (apiCall === fieldVerifyApi && application?.status !== "DOCUMENT_VERIFIED") {
-      toast.error("❌ Document verification must be completed first before proceeding to field verification.");
+    if (
+      actionType === "field" &&
+      application?.status !== "DOCUMENT_VERIFIED"
+    ) {
+      toast.error(
+        "❌ Document verification must be completed first before proceeding to field verification.",
+      );
       return;
     }
 
     try {
-      setActionLoading(true);
-      await apiCall(applicationId, { remarks });
+      const payload = { applicationId, remarks };
+      if (actionType === "document") {
+        await documentVerify(payload).unwrap();
+      } else {
+        await fieldVerify(payload).unwrap();
+      }
       toast.success(successMsg);
       navigate("/officer/dashboard");
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Action failed");
-    } finally {
-      setActionLoading(false);
+      toast.error(err?.data?.message || "Action failed");
     }
   };
 
@@ -165,14 +157,14 @@ function OfficerReviewPage() {
 
                   <div className="flex gap-2 shrink-0">
                     <button
-                      onClick={() => window.open(`${API_BASE_URL}/${document.fileUrl}`, "_blank")}
+                      onClick={() => window.open(`${uploadsBaseUrl}/${document.fileUrl}`, "_blank")}
                       title="Preview"
                       className="h-8 w-8 rounded-full bg-blue-50 border border-blue-100 text-blue-700 flex items-center justify-center hover:bg-blue-100 transition"
                     >
                       <Eye size={13} />
                     </button>
                     <a
-                      href={`${API_BASE_URL}/${document.fileUrl}`}
+                      href={`${uploadsBaseUrl}/${document.fileUrl}`}
                       download
                       title="Download"
                       className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center hover:bg-emerald-100 transition"
@@ -208,7 +200,7 @@ function OfficerReviewPage() {
               
               {/* Document Verify (SUBMITTED -> DOCUMENT_VERIFIED) */}
               <button
-                onClick={() => handleAction(documentVerifyApi, "Document verification completed")}
+                onClick={() => handleAction("document", "Document verification completed")}
                 disabled={actionLoading}
                 className="w-full rounded-full bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-50"
               >
@@ -217,7 +209,12 @@ function OfficerReviewPage() {
 
               {/* Field Verify (DOCUMENT_VERIFIED -> FIELD_VERIFIED) & Submit to Admin */}
               <button
-                onClick={() => handleAction(fieldVerifyApi, "Application submitted to Admin for approval! File will now be reviewed by Admin for final decision.")}
+                onClick={() =>
+                  handleAction(
+                    "field",
+                    "Application submitted to Admin for approval! File will now be reviewed by Admin for final decision.",
+                  )
+                }
                 disabled={actionLoading}
                 className="w-full rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs py-3.5 shadow flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-50"
               >
@@ -240,25 +237,6 @@ function ReviewParam({ icon: Icon, label, val }) {
         <p className="text-xs font-bold text-slate-700 mt-0.5 truncate">{val}</p>
       </div>
     </div>
-  );
-}
-
-function Loader2({ size, className }) {
-  return (
-    <svg
-      className={`animate-spin ${className}`}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      style={{ width: size, height: size }}
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   );
 }
 

@@ -22,27 +22,41 @@ import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import {
-  createAdminApi,
-  createOfficerApi,
-  getAdminsApi,
-  getOfficersApi,
-  updateUserStatusApi,
-} from "../api/admin.api";
+  useGetAdminsQuery,
+  useGetOfficersQuery,
+  useCreateAdminMutation,
+  useCreateOfficerMutation,
+  useUpdateUserStatusMutation,
+} from "../../../store/services/admin.api";
 import {
-  getAllCategoriesApi,
-  getAllSchemesApi,
-  createSchemeApi,
-  updateSchemeApi,
-  deleteSchemeApi,
-  createSchemeCategoryApi,
-  updateSchemeCategoryApi,
-  deleteSchemeCategoryApi,
-} from "../../schemes/api/schemes.api";
+  useGetAllCategoriesQuery,
+  useGetAllSchemesQuery,
+  useCreateSchemeMutation,
+  useUpdateSchemeMutation,
+  useDeleteSchemeMutation,
+  useCreateSchemeCategoryMutation,
+  useUpdateSchemeCategoryMutation,
+  useDeleteSchemeCategoryMutation,
+} from "../../../store/services/schemes.api";
 
 function AdminStaffPage() {
-  const [loading, setLoading] = useState(true);
-  const [admins, setAdmins] = useState([]);
-  const [officers, setOfficers] = useState([]);
+  const { data: admins = [], isLoading: adminsLoading, refetch: refetchAdmins } =
+    useGetAdminsQuery();
+  const { data: officers = [], isLoading: officersLoading, refetch: refetchOfficers } =
+    useGetOfficersQuery();
+  const { data: categories = [], refetch: refetchCategories } =
+    useGetAllCategoriesQuery();
+  const { data: schemes = [], refetch: refetchSchemes } = useGetAllSchemesQuery();
+  const [createAdmin] = useCreateAdminMutation();
+  const [createOfficer] = useCreateOfficerMutation();
+  const [updateUserStatus] = useUpdateUserStatusMutation();
+  const [createScheme] = useCreateSchemeMutation();
+  const [updateScheme] = useUpdateSchemeMutation();
+  const [deleteScheme] = useDeleteSchemeMutation();
+  const [createSchemeCategory] = useCreateSchemeCategoryMutation();
+  const [updateSchemeCategory] = useUpdateSchemeCategoryMutation();
+  const [deleteSchemeCategory] = useDeleteSchemeCategoryMutation();
+  const loading = adminsLoading || officersLoading;
   const [activeTab, setActiveTab] = useState("admins");
   const [submitting, setSubmitting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -57,8 +71,6 @@ function AdminStaffPage() {
   });
   const [errors, setErrors] = useState({});
 
-  const [categories, setCategories] = useState([]);
-  const [schemes, setSchemes] = useState([]);
   const [schemeModalOpen, setSchemeModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [selectedScheme, setSelectedScheme] = useState(null);
@@ -87,40 +99,19 @@ function AdminStaffPage() {
     loadSchemeData();
   }, []);
 
-  const loadStaff = async () => {
-    try {
-      setLoading(true);
-      const [adminsResponse, officersResponse] = await Promise.all([
-        getAdminsApi(),
-        getOfficersApi(),
-      ]);
-      setAdmins(adminsResponse.data.data || []);
-      setOfficers(officersResponse.data.data || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to load staff records");
-    } finally {
-      setLoading(false);
-    }
+  const loadStaff = () => {
+    refetchAdmins();
+    refetchOfficers();
   };
 
-  const loadSchemeData = async () => {
-    try {
-      const [categoriesResponse, schemesResponse] = await Promise.all([
-        getAllCategoriesApi(),
-        getAllSchemesApi(),
-      ]);
-      setCategories(categoriesResponse.data.data || []);
-      setSchemes(schemesResponse.data.data || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to load scheme management data");
-    }
+  const loadSchemeData = () => {
+    refetchCategories();
+    refetchSchemes();
   };
 
   const handleToggleStatus = async (user) => {
     try {
-      await updateUserStatusApi(user._id, !user.isActive);
+      await updateUserStatus({ id: user._id, isActive: !user.isActive }).unwrap();
       toast.success(`Account ${user.isActive ? "deactivated" : "activated"}`);
       await loadStaff();
     } catch (error) {
@@ -213,7 +204,7 @@ function AdminStaffPage() {
   const handleDeleteScheme = async (scheme) => {
     if (!window.confirm(`Delete scheme ${scheme.schemeName}? This cannot be undone.`)) return;
     try {
-      await deleteSchemeApi(scheme._id);
+      await deleteScheme(scheme._id).unwrap();
       toast.success("Scheme removed successfully");
       await loadSchemeData();
     } catch (error) {
@@ -243,10 +234,10 @@ function AdminStaffPage() {
       };
 
       if (selectedScheme) {
-        await updateSchemeApi(selectedScheme._id, payload);
+        await updateScheme({ id: selectedScheme._id, ...payload }).unwrap();
         toast.success("Scheme updated successfully");
       } else {
-        await createSchemeApi(payload);
+        await createScheme(payload).unwrap();
         toast.success("Scheme created successfully");
       }
       await loadSchemeData();
@@ -280,7 +271,7 @@ function AdminStaffPage() {
   const handleDeleteCategory = async (category) => {
     if (!window.confirm(`Delete category ${category.categoryName}? This cannot be undone.`)) return;
     try {
-      await deleteSchemeCategoryApi(category._id);
+      await deleteSchemeCategory(category._id).unwrap();
       toast.success("Category removed successfully");
       await loadSchemeData();
     } catch (error) {
@@ -304,10 +295,10 @@ function AdminStaffPage() {
       };
 
       if (selectedCategory) {
-        await updateSchemeCategoryApi(selectedCategory._id, payload);
+        await updateSchemeCategory({ id: selectedCategory._id, ...payload }).unwrap();
         toast.success("Category updated successfully");
       } else {
-        await createSchemeCategoryApi(payload);
+        await createSchemeCategory(payload).unwrap();
         toast.success("Category created successfully");
       }
       await loadSchemeData();
@@ -365,10 +356,10 @@ function AdminStaffPage() {
       };
 
       if (form.role === "ADMIN") {
-        await createAdminApi(payload);
+        await createAdmin(payload).unwrap();
         toast.success("New administrator created successfully!");
       } else {
-        await createOfficerApi(payload);
+        await createOfficer(payload).unwrap();
         toast.success("New verification officer created successfully!");
       }
 

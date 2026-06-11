@@ -14,8 +14,12 @@ import toast from "react-hot-toast";
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
-import { getMyProfileApi, updateMyProfileApi, updateMyProfileImageApi } from "../api/profile.api";
-import { setUser } from "../../../utils/storage";
+import {
+  useGetMyProfileQuery,
+  useUpdateMyProfileMutation,
+  useUpdateMyProfileImageMutation,
+} from "../../../store/services/profile.api";
+import useAuth from "../../../hooks/useAuth";
 
 const initialFormState = {
   firstName: "",
@@ -38,52 +42,43 @@ const initialFormState = {
 };
 
 function ProfilePage() {
+  const { patchUser } = useAuth();
+  const { data: profileData, isLoading: loading } = useGetMyProfileQuery();
+  const [updateMyProfile, { isLoading: saving }] = useUpdateMyProfileMutation();
+  const [updateMyProfileImage, { isLoading: imageSaving }] =
+    useUpdateMyProfileImageMutation();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState(initialFormState);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageUpdated, setImageUpdated] = useState(false);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const response = await getMyProfileApi();
-      const user = response.data.data;
-      setProfile(user);
-      setForm({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        email: user.email || "",
-        phoneNumber: user.phoneNumber || "",
-        aadhaarNumber: user.aadhaarNumber || "",
-        dateOfBirth: user.dateOfBirth?.split("T")[0] || "",
-        gender: user.gender || "",
-        profileImage: user.profileImage || "",
-        address: {
-          houseNo: user.address?.houseNo || "",
-          street: user.address?.street || "",
-          village: user.address?.village || "",
-          mandal: user.address?.mandal || "",
-          district: user.address?.district || "",
-          state: user.address?.state || "",
-          pincode: user.address?.pincode || "",
-        },
-      });
-      setImagePreview(user.profileImage || null);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to load profile information");
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!profileData) return;
+    const user = profileData;
+    setProfile(user);
+    setForm({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+      phoneNumber: user.phoneNumber || "",
+      aadhaarNumber: user.aadhaarNumber || "",
+      dateOfBirth: user.dateOfBirth?.split("T")[0] || "",
+      gender: user.gender || "",
+      profileImage: user.profileImage || "",
+      address: {
+        houseNo: user.address?.houseNo || "",
+        street: user.address?.street || "",
+        village: user.address?.village || "",
+        mandal: user.address?.mandal || "",
+        district: user.address?.district || "",
+        state: user.address?.state || "",
+        pincode: user.address?.pincode || "",
+      },
+    });
+    setImagePreview(user.profileImage || null);
+  }, [profileData]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -166,7 +161,6 @@ function ProfilePage() {
     }
 
     try {
-      setSaving(true);
       setErrors({});
 
       const payload = {
@@ -181,25 +175,20 @@ function ProfilePage() {
 
       let updatedProfile = null;
       if (imageUpdated && form.profileImage) {
-        const imageResponse = await updateMyProfileImageApi(form.profileImage);
-        updatedProfile = imageResponse.data.data;
+        updatedProfile = await updateMyProfileImage(form.profileImage).unwrap();
       }
 
-      const response = await updateMyProfileApi(payload);
-      updatedProfile = response.data.data;
+      updatedProfile = await updateMyProfile(payload).unwrap();
 
       setProfile(updatedProfile);
-      setUser(updatedProfile);
-      window.dispatchEvent(new Event("userProfileUpdated"));
+      patchUser(updatedProfile);
       setImagePreview(updatedProfile.profileImage || imagePreview);
       setImageUpdated(false);
       toast.success("Profile updated successfully");
     } catch (error) {
       console.error(error);
-      const message = error?.response?.data?.message || "Failed to save profile changes";
+      const message = error?.data?.message || "Failed to save profile changes";
       toast.error(message);
-    } finally {
-      setSaving(false);
     }
   };
 

@@ -1,0 +1,11 @@
+import "./auth.api";
+import "./dashboard.api";
+import "./notifications.api";
+import "./profile.api";
+import "./schemes.api";
+import "./applications.api";
+import "./upload.api";
+import "./verification.api";
+import "./payments.api";
+import "./admin.api";
+import "./reports.api";

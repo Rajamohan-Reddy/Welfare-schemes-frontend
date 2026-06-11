@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp,
   Users,
@@ -33,7 +33,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import toast from "react-hot-toast";
-import { getDashboardAnalyticsApi } from "../api/admin-analytics.api";
+import { useGetDashboardAnalyticsQuery } from "../../../store/services/dashboard.api";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 
@@ -64,25 +64,18 @@ const CHART_COLORS = [
 ];
 
 function AnalyticsDashboardPage() {
-  const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState(null);
+  const {
+    data: analytics = null,
+    isLoading: loading,
+    refetch: loadAnalytics,
+    isError,
+  } = useGetDashboardAnalyticsQuery();
 
   useEffect(() => {
-    loadAnalytics();
-  }, []);
-
-  const loadAnalytics = async () => {
-    try {
-      setLoading(true);
-      const response = await getDashboardAnalyticsApi();
-      setAnalytics(response.data?.data || null);
-    } catch (err) {
-      console.error("Error loading analytics:", err);
+    if (isError) {
       toast.error("Failed to load analytics data");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError]);
 
   // Compute all metrics from real API data
   const computedMetrics = useMemo(() => {

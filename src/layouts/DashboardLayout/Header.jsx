@@ -3,11 +3,11 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { getUser, clearAuthStorage } from "../../utils/storage";
+import useAuth from "../../hooks/useAuth";
 import useNotifications from "../../hooks/useNotifications";
 
 function Header() {
-  const [user, setUserState] = useState(getUser());
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [showProfile, setShowProfile] = useState(false);
@@ -49,12 +49,6 @@ function Header() {
   } = useNotifications();
 
   useEffect(() => {
-    const handleProfileUpdate = () => setUserState(getUser());
-    window.addEventListener("userProfileUpdated", handleProfileUpdate);
-    return () => window.removeEventListener("userProfileUpdated", handleProfileUpdate);
-  }, []);
-
-  useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfile(false);
@@ -67,8 +61,8 @@ function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    clearAuthStorage();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

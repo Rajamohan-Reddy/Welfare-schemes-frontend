@@ -13,7 +13,7 @@ import {
   Loader2,
   CheckCircle,
 } from "lucide-react";
-import { registerApi } from "../api/auth.api";
+import { useRegisterMutation } from "../../../store/services/auth.api";
 
 const passwordStrength = (pw) => {
   if (!pw) return null;
@@ -65,7 +65,7 @@ function InputWrap({ error, icon: Icon, children, className = "" }) {
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [register, { isLoading: loading }] = useRegisterMutation();
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1); // 2-step registration
@@ -128,18 +128,17 @@ function RegisterPage() {
     e.preventDefault();
     if (!validateStep2()) return;
     try {
-      setLoading(true);
-      await registerApi({
+      await register({
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
         phoneNumber: form.phoneNumber,
         password: form.password,
-      });
+      }).unwrap();
       toast.success("Account registered successfully!");
       navigate("/login");
     } catch (error) {
-      const resp = error?.response?.data;
+      const resp = error?.data;
       // If backend returned validation errors array, surface them and attach to fields when possible
       if (resp?.errors && Array.isArray(resp.errors) && resp.errors.length) {
         toast.error(resp.errors.join("; "));
@@ -159,8 +158,6 @@ function RegisterPage() {
       } else {
         toast.error("Registration failed");
       }
-    } finally {
-      setLoading(false);
     }
   };
 

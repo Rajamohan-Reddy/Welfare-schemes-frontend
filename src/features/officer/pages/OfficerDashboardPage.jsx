@@ -24,48 +24,45 @@ import {
   Layers,
 } from "lucide-react";
 import {
-  getOfficerDashboardApi,
-  getApplicationStatusChartApi,
-} from "../../dashboard/api/dashboard.api";
-import { getApplicationByIdApi } from "../../schemes/api/applications.api";
+  useGetOfficerDashboardQuery,
+  useGetApplicationStatusChartQuery,
+} from "../../../store/services/dashboard.api";
+import { useLazyGetApplicationByIdQuery } from "../../../store/services/applications.api";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import toast from "react-hot-toast";
 
 function OfficerDashboardPage() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
-  const [statusData, setStatusData] = useState([]);
+  const {
+    data: stats = {},
+    isLoading: dashboardLoading,
+    refetch: refetchDashboard,
+    isFetching: dashboardFetching,
+  } = useGetOfficerDashboardQuery();
+  const { data: statusData = [], isLoading: chartLoading } =
+    useGetApplicationStatusChartQuery();
+  const [fetchApplicationById] = useLazyGetApplicationByIdQuery();
+  const loading = dashboardLoading || chartLoading;
   const [searchId, setSearchId] = useState("");
   const [application, setApplication] = useState(null);
   const [lastSync, setLastSync] = useState(null);
-  const [syncing, setSyncing] = useState(false);
+  const syncing = dashboardFetching;
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    load();
-  }, []);
+    if (!dashboardLoading && !chartLoading) {
+      setLastSync(new Date());
+    }
+  }, [dashboardLoading, chartLoading, stats, statusData]);
 
   const load = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
-      else setSyncing(true);
-
-      const [resp, statusResp] = await Promise.all([
-        getOfficerDashboardApi(),
-        getApplicationStatusChartApi(),
-      ]);
-
-      setStats(resp.data.data || {});
-      setStatusData(statusResp.data.data || []);
+      await refetchDashboard();
       setLastSync(new Date());
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load officer dashboard");
-    } finally {
-      setLoading(false);
-      setSyncing(false);
+      if (!silent) toast.error("Failed to load officer dashboard");
     }
   };
 
@@ -76,21 +73,20 @@ function OfficerDashboardPage() {
     }
 
     try {
-      const resp = await getApplicationByIdApi(searchId);
-      if (resp.data.data) {
-        setApplication(resp.data.data);
+      const resp = await fetchApplicationById(searchId).unwrap();
+      if (resp) {
+        setApplication(resp);
         toast.success("Application pulled successfully");
       } else {
         toast.error("Application not found. Please verify the ID.");
       }
     } catch (err) {
       console.error("Fidelity lookup error:", err);
-      const errorMsg = err?.response?.data?.message || "Application not found or access denied";
-      
-      // Provide more specific error messages
-      if (err?.response?.status === 404) {
+      const errorMsg = err?.data?.message || "Application not found or access denied";
+
+      if (err?.status === 404) {
         toast.error("❌ Application not found. Check the ID and try again.");
-      } else if (err?.response?.status === 403) {
+      } else if (err?.status === 403) {
         toast.error("❌ Access denied. You don't have permission to view this application.");
       } else {
         toast.error(`❌ ${errorMsg}`);

@@ -11,15 +11,18 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
 
-import { loginApi } from "../api/auth.api";
-import { setAccessToken, setUser } from "../../../utils/storage";
+import { useLoginMutation } from "../../../store/services/auth.api";
+import { useLazyGetMyProfileQuery } from "../../../store/services/profile.api";
+import { setCredentials } from "../../../store/slices/auth.slice";
 import { ROUTES } from "../../../constants/routes";
-import { getMyProfileApi } from "../../citizen/api/profile.api";
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
+  const [login, { isLoading: loading }] = useLoginMutation();
+  const [fetchProfile] = useLazyGetMyProfileQuery();
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({ identifier: "", password: "" });
@@ -45,39 +48,30 @@ function LoginPage() {
     e.preventDefault();
     if (!validateLogin()) return;
     try {
-      setLoading(true);
-      const response = await loginApi(form);
-      // Support multiple response shapes: { data: { data: { accessToken, user } } } or { data: { accessToken, user } }
-      const responseData = response?.data ?? response;
-      const payload = responseData?.data ?? responseData;
-      const token =
-        payload?.accessToken ?? payload?.token ?? responseData?.accessToken;
-      const user = payload?.user ?? responseData?.user ?? payload;
+      const payload = await login(form).unwrap();
+      const user = payload?.user ?? payload;
 
-      if (!token || !user) {
+      if (!user?.role) {
         throw new Error("Invalid login response from server");
       }
 
-      setAccessToken(token);
+      let fullProfile = user;
 
-      // Fetch full profile after token is available so subsequent requests are authenticated
       try {
-        const profileResp = await getMyProfileApi();
-        const fullProfile = {
-          ...user,
-          profileImage: profileResp?.data?.data?.profileImage,
-        };
-        setUser(fullProfile);
-      } catch (err) {
-        setUser(user);
+        const profile = await fetchProfile().unwrap();
+        fullProfile = { ...user, profileImage: profile?.profileImage };
+      } catch {
+        // Profile enrichment is optional
       }
+
+      dispatch(setCredentials(fullProfile));
 
       toast.success("Welcome back, " + (user.firstName || "User"));
       if (user.role === "ADMIN") navigate(ROUTES.ADMIN_DASHBOARD);
       else if (user.role === "OFFICER") navigate(ROUTES.OFFICER_DASHBOARD);
       else navigate(ROUTES.CITIZEN_DASHBOARD);
     } catch (error) {
-      const errorMsg = error?.response?.data?.message?.toLowerCase() || "";
+      const errorMsg = error?.data?.message?.toLowerCase() || "";
       let displayMessage = "Authentication failed";
 
       if (errorMsg.includes("invalid") || errorMsg.includes("incorrect")) {
@@ -90,13 +84,10 @@ function LoginPage() {
       } else if (errorMsg.includes("inactive")) {
         displayMessage = "❌ Your account is inactive";
       } else if (errorMsg) {
-        displayMessage =
-          error?.response?.data?.message || "Authentication failed";
+        displayMessage = error?.data?.message || "Authentication failed";
       }
 
       toast.error(displayMessage, { duration: 4000 });
-    } finally {
-      setLoading(false);
     }
   };
 

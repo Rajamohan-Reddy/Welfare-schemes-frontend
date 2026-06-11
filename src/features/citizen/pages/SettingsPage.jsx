@@ -4,15 +4,16 @@ import toast from "react-hot-toast";
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
-import { changeMyPasswordApi } from "../api/profile.api";
+import { useChangeMyPasswordMutation } from "../../../store/services/profile.api";
 
 function SettingsPage() {
+  const [changePassword, { isLoading: savingPassword }] =
+    useChangeMyPasswordMutation();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     const savedNotifications = localStorage.getItem("welfare-notifications-enabled");
@@ -47,19 +48,14 @@ function SettingsPage() {
     }
 
     try {
-      setSavingPassword(true);
-      await changeMyPasswordApi({ currentPassword, newPassword });
+      await changePassword({ currentPassword, newPassword }).unwrap();
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       toast.success("Password updated successfully.");
     } catch (error) {
       console.error(error);
-      toast.error(
-        error?.response?.data?.message || "Unable to update password.",
-      );
-    } finally {
-      setSavingPassword(false);
+      toast.error(error?.data?.message || "Unable to update password.");
     }
   };
 

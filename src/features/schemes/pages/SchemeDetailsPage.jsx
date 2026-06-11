@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Calendar,
   Building2,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { getSchemeByIdApi } from "../api/schemes.api";
+import { useGetSchemeByIdQuery } from "../../../store/services/schemes.api";
 import Card from "../../../components/ui/Card";
 
 const categoryCovers = {
@@ -33,25 +33,8 @@ const categoryCovers = {
 function SchemeDetailsPage() {
   const { schemeId } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [scheme, setScheme] = useState(null);
+  const { data: scheme, isLoading: loading } = useGetSchemeByIdQuery(schemeId);
   const [activeTab, setActiveTab] = useState("overview"); // overview, eligibility, documents
-
-  useEffect(() => {
-    const fetchScheme = async () => {
-      try {
-        setLoading(true);
-        const response = await getSchemeByIdApi(schemeId);
-        setScheme(response.data.data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchScheme();
-  }, [schemeId]);
 
   if (loading) {
     return (

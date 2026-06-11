@@ -4,7 +4,10 @@ import {
   CheckCircle, Filter, Globe, ArrowRight, ChevronDown,
 } from "lucide-react";
 import SchemeCard from "../components/SchemeCard";
-import { getAllCategoriesApi, getAllSchemesApi } from "../api/schemes.api";
+import {
+  useGetAllSchemesQuery,
+  useGetAllCategoriesQuery,
+} from "../../../store/services/schemes.api";
 
 // Category icon/gradient map
 const categoryGradients = {
@@ -20,30 +23,14 @@ const categoryGradients = {
 };
 
 function BrowseSchemesPage() {
-  const [loading, setLoading] = useState(true);
-  const [schemes, setSchemes] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const { data: schemes = [], isLoading: schemesLoading } =
+    useGetAllSchemesQuery();
+  const { data: categories = [], isLoading: categoriesLoading } =
+    useGetAllCategoriesQuery();
+  const loading = schemesLoading || categoriesLoading;
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [sortBy, setSortBy] = useState("newest"); // newest | amount | name
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [schemesRes, categoriesRes] = await Promise.all([
-        getAllSchemesApi(),
-        getAllCategoriesApi(),
-      ]);
-      setSchemes(schemesRes?.data?.data || []);
-      setCategories(categoriesRes?.data?.data || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadData(); }, []);
 
   // Sync search param from URL (header search)
   useEffect(() => {

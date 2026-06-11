@@ -1,56 +1,40 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell,
-  Check,
   Trash2,
   Loader2,
   ShieldAlert,
   Info,
-  CheckCircle,
   FileCheck2,
   RefreshCw,
-  Sliders,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import {
-  getNotificationsApi,
-  markNotificationReadApi,
-  markAllReadApi,
-  deleteNotificationApi,
-  deleteAllNotificationsApi,
-} from "../api/notifications.api";
+  useGetNotificationsQuery,
+  useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
+  useDeleteNotificationMutation,
+  useDeleteAllNotificationsMutation,
+} from "../../../store/services/notifications.api";
 
 function NotificationsPage() {
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState([]);
-  const [filter, setFilter] = useState("all"); // all, unread, read
+  const { data: notifications = [], isLoading: loading, refetch } =
+    useGetNotificationsQuery();
+  const [markNotificationRead] = useMarkNotificationReadMutation();
+  const [markAllNotificationsRead] = useMarkAllNotificationsReadMutation();
+  const [deleteNotification] = useDeleteNotificationMutation();
+  const [deleteAllNotifications] = useDeleteAllNotificationsMutation();
+  const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      const response = await getNotificationsApi();
-      setNotifications(response.data.data || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to load notifications");
-    } finally {
-      setLoading(false);
-    }
+  const loadNotifications = () => {
+    refetch();
   };
 
   const handleMarkRead = async (id) => {
     try {
-      await markNotificationReadApi(id);
-      setNotifications((prev) =>
-        prev.map((item) => (item._id === id ? { ...item, isRead: true } : item)),
-      );
+      await markNotificationRead(id).unwrap();
       toast.success("Notification marked as read");
     } catch (error) {
       console.error(error);
@@ -60,8 +44,7 @@ function NotificationsPage() {
 
   const handleMarkAll = async () => {
     try {
-      await markAllReadApi();
-      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      await markAllNotificationsRead().unwrap();
       toast.success("All notifications marked read");
     } catch (error) {
       console.error(error);
@@ -71,8 +54,7 @@ function NotificationsPage() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteNotificationApi(id);
-      setNotifications((prev) => prev.filter((item) => item._id !== id));
+      await deleteNotification(id).unwrap();
       toast.success("Notification deleted");
     } catch (error) {
       console.error(error);
@@ -82,8 +64,7 @@ function NotificationsPage() {
 
   const handleDeleteAll = async () => {
     try {
-      await deleteAllNotificationsApi();
-      setNotifications([]);
+      await deleteAllNotifications().unwrap();
       toast.success("All notifications cleared");
     } catch (error) {
       console.error(error);
@@ -91,7 +72,6 @@ function NotificationsPage() {
     }
   };
 
-  // Helper to resolve categories and icons based on notification contents
   const resolveNotificationMeta = (item) => {
     const title = item.title.toLowerCase();
     if (title.includes("approve") || title.includes("success") || title.includes("verify")) {
@@ -125,10 +105,9 @@ function NotificationsPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-1">
-      {/* Alert intelligence header banner */}
       <div className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#4338CA] p-8 text-white shadow-2xl">
         <div className="absolute top-0 right-0 h-full w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06)_0,transparent_100%)] pointer-events-none" />
-        
+
         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-bold tracking-widest text-indigo-300">
@@ -140,14 +119,13 @@ function NotificationsPage() {
             </p>
           </div>
 
-          {/* Quick Stats & Toggles */}
           <div className="w-full lg:w-80 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-inner flex justify-between items-center gap-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">Priority Signals</p>
               <p className="mt-2 text-2xl font-black text-white">{unreadCount} Unread</p>
               <p className="text-[11px] text-slate-400 mt-1">Awaiting review</p>
             </div>
-            
+
             <div className="flex flex-col gap-2 shrink-0">
               <button
                 onClick={handleMarkAll}
@@ -167,15 +145,13 @@ function NotificationsPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-        {/* Main Notifications Log */}
         <Card className="rounded-[36px] border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5 mb-6">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-600">Event Stream</span>
               <h2 className="mt-1 text-2xl font-black text-[#071A52] tracking-tight">Active Logs</h2>
             </div>
-            
-            {/* Quick Filter Tabs */}
+
             <div className="flex bg-slate-50 border border-slate-100 rounded-full p-1 font-semibold text-xs text-slate-500">
               {["all", "unread", "read"].map((tab) => (
                 <button
@@ -225,7 +201,6 @@ function NotificationsPage() {
                     >
                       <div className="flex flex-col sm:flex-row gap-4 items-start justify-between">
                         <div className="flex gap-4">
-                          {/* Colored dynamic Icon */}
                           <div className={`h-11 w-11 rounded-2xl border flex items-center justify-center shrink-0 ${meta.colorClass}`}>
                             <IconComponent size={20} />
                           </div>
@@ -246,7 +221,6 @@ function NotificationsPage() {
                           </div>
                         </div>
 
-                        {/* Event action controls */}
                         <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
                           {!item.isRead && (
                             <button
@@ -272,11 +246,10 @@ function NotificationsPage() {
           )}
         </Card>
 
-        {/* Right Insights Hub */}
         <div className="space-y-6">
           <div className="w-full rounded-[28px] border border-slate-700 bg-[#0F172A] text-white p-8 shadow-[0_20px_50px_rgba(15,23,42,0.08)] relative overflow-hidden">
             <div className="absolute top-0 right-0 h-32 w-32 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.05)_0,transparent_100%)] pointer-events-none" />
-            
+
             <div className="border-b border-white/5 pb-4 mb-5">
               <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-300">Metrics Hub</span>
               <h3 className="mt-1 text-xl font-extrabold tracking-tight">Signal Analysis</h3>

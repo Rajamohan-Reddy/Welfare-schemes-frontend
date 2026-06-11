@@ -18,39 +18,36 @@ import {
   Heart,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getApplicationByIdApi } from "../api/applications.api";
-import { getUser } from "../../../utils/storage";
+import { useGetApplicationByIdQuery } from "../../../store/services/applications.api";
+import { API_BASE_URL } from "../../../store/services/baseApi";
+import useAuth from "../../../hooks/useAuth";
 import Card from "../../../components/ui/Card";
+import {
+  getApplicationProgress,
+  getPaymentDateLabel,
+  getStageLabel,
+  getTimelineSteps,
+  isCurrentStep,
+  isStepCompleted,
+  normalizeApplicationStatus,
+} from "../../../utils/applicationStatus";
 
 function ApplicationTrackingPage() {
   const { applicationId } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [application, setApplication] = useState(null);
+  const { user } = useAuth();
+  const { data: application, isLoading: loading, refetch } =
+    useGetApplicationByIdQuery(applicationId, { pollingInterval: 15000 });
   const canvasRef = useRef(null);
 
-  const API_BASE_URL = "http://localhost:5000";
-
-  const loadApplication = async () => {
-    try {
-      const response = await getApplicationByIdApi(applicationId);
-      setApplication(response.data.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadApplication();
-    const refreshInterval = setInterval(loadApplication, 15000);
-    return () => clearInterval(refreshInterval);
-  }, [applicationId]);
+  const uploadsBaseUrl = API_BASE_URL.replace("/api/v1", "");
 
   // Confetti Animation Engine
   useEffect(() => {
-    if (application?.status === "BENEFIT_DISBURSED" && canvasRef.current) {
+    if (
+      normalizeApplicationStatus(application?.status) === "PAID" &&
+      canvasRef.current
+    ) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
       let animationFrameId;
@@ -126,8 +123,6 @@ function ApplicationTrackingPage() {
     }
   }, [application?.status]);
 
-  const user = getUser();
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -135,41 +130,9 @@ function ApplicationTrackingPage() {
     return "Good Evening";
   };
 
-  const normalizeStatus = (status) => {
-    const aliases = {
-      UNDER_VERIFICATION: "DOCUMENT_VERIFIED",
-      VERIFIED: "FIELD_VERIFIED",
-      PAYMENT_PENDING: "APPROVED",
-    };
-
-    return aliases[status] || status;
-  };
-
-  const getTimelineSteps = (status) => {
-    const base = ["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED"];
-    if (status === "REJECTED") return ["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "REJECTED"];
-    if (status === "BENEFIT_DISBURSED") return [...base, "BENEFIT_DISBURSED"];
-    return base;
-  };
-
-  const currentStatus = normalizeStatus(application?.status);
-  const statusSteps = getTimelineSteps(currentStatus);
-  const currentStep = statusSteps.indexOf(currentStatus);
-  const progress = currentStep >= 0 ? Math.round(((currentStep + 1) / statusSteps.length) * 100) : 0;
-
-  const stageLabel = (status) => {
-    const labels = {
-      SUBMITTED: "Application Submitted",
-      DOCUMENT_VERIFIED: "Documents Verified",
-      FIELD_VERIFIED: "Field Verification",
-      APPROVED: "Approval Complete",
-      BENEFIT_DISBURSED: "Benefit Disbursed",
-      REJECTED: "Application Rejected",
-    };
-
-    const normalized = normalizeStatus(status);
-    return labels[normalized] || normalized.replaceAll("_", " ");
-  };
+  const currentStatus = normalizeApplicationStatus(application?.status);
+  const statusSteps = getTimelineSteps(application?.status);
+  const progress = getApplicationProgress(application?.status);
 
   if (loading) {
     return (
@@ -195,7 +158,7 @@ function ApplicationTrackingPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-1 relative">
       {/* Canvas for Disbursal Confetti celebration overlay */}
-      {application?.status === "BENEFIT_DISBURSED" && (
+      {currentStatus === "PAID" && (
         <canvas
           ref={canvasRef}
           className="fixed inset-0 pointer-events-none z-50 w-full h-full"
@@ -226,13 +189,13 @@ function ApplicationTrackingPage() {
               </span>
             </div>
             <p className="max-w-2xl text-sm leading-relaxed text-slate-300">
-              {stageLabel(application?.status)} — your verification status is shown here with live update support.
+              {getStageLabel(application?.status)} — your verification status is shown here with live update support.
             </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-3xl border border-white/10 bg-white/10 p-3">
                 <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Current stage</p>
-                <p className="mt-2 text-sm font-bold text-white">{stageLabel(application?.status)}</p>
+                <p className="mt-2 text-sm font-bold text-white">{getStageLabel(application?.status)}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-white/10 p-3">
                 <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Last update</p>
@@ -245,14 +208,14 @@ function ApplicationTrackingPage() {
 
           <div className="rounded-[28px] border border-white/10 bg-white/10 p-4 shadow-inner backdrop-blur-sm">
             <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Processing stage</p>
-            <p className="mt-2 text-sm font-bold text-white">{stageLabel(application?.status)}</p>
+            <p className="mt-2 text-sm font-bold text-white">{getStageLabel(application?.status)}</p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15">
               <div className="h-full rounded-full bg-gradient-to-r from-[#FACC15] to-[#EAB308] transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-200">
               <span>{progress}% complete</span>
               <button
-                onClick={loadApplication}
+                onClick={() => refetch()}
                 className="rounded-full bg-white/10 px-3 py-1 text-white transition hover:bg-white/20"
               >
                 Refresh
@@ -263,7 +226,7 @@ function ApplicationTrackingPage() {
       </section>
 
       {/* Celebration disbursal notification card */}
-      {application?.status === "BENEFIT_DISBURSED" && (
+      {currentStatus === "PAID" && (
         <div className="rounded-[32px] bg-gradient-to-r from-emerald-500 to-teal-600 p-8 text-white shadow-xl relative overflow-hidden flex items-center gap-6 animate-bounce-short">
           <div className="h-16 w-16 bg-white/10 rounded-2xl flex items-center justify-center text-white shadow-inner shrink-0 animate-pulse">
             <Heart size={28} />
@@ -297,9 +260,14 @@ function ApplicationTrackingPage() {
             {statusSteps.map((step, index) => (
               <TimelineTrackerItem
                 key={step}
-                title={stageLabel(step)}
-                completed={index <= currentStep}
-                current={index === currentStep}
+                title={getStageLabel(step)}
+                subtitle={
+                  step === "PAID" && isStepCompleted("PAID", application?.status)
+                    ? getPaymentDateLabel(application)
+                    : undefined
+                }
+                completed={isStepCompleted(step, application?.status)}
+                current={isCurrentStep(step, application?.status)}
                 last={index === statusSteps.length - 1}
               />
             ))}
@@ -329,14 +297,14 @@ function ApplicationTrackingPage() {
 
                   <div className="flex gap-2 shrink-0">
                     <button
-                      onClick={() => window.open(`${API_BASE_URL}/${document.fileUrl}`, "_blank")}
+                      onClick={() => window.open(`${uploadsBaseUrl}/${document.fileUrl}`, "_blank")}
                       title="Preview"
                       className="h-8 w-8 rounded-full bg-blue-50 border border-blue-100 text-blue-700 flex items-center justify-center hover:bg-blue-100 transition"
                     >
                       <Eye size={13} />
                     </button>
                     <a
-                      href={`${API_BASE_URL}/${document.fileUrl}`}
+                      href={`${uploadsBaseUrl}/${document.fileUrl}`}
                       download
                       title="Download"
                       className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center hover:bg-emerald-100 transition"
@@ -363,7 +331,7 @@ function InfoSummaryCard({ title, val, active }) {
   );
 }
 
-function TimelineTrackerItem({ title, completed, current, last }) {
+function TimelineTrackerItem({ title, subtitle, completed, current, last }) {
   const color = completed
     ? "bg-emerald-500 border-emerald-600 text-white"
     : current
@@ -373,7 +341,11 @@ function TimelineTrackerItem({ title, completed, current, last }) {
   return (
     <div className="relative flex items-start gap-4">
       {!last && (
-        <span className={`absolute left-5.5 top-11 h-6 w-[2px] ${completed ? "bg-emerald-500" : "bg-slate-200"}`} />
+        <span
+          className={`absolute left-5.5 top-11 h-6 w-[2px] ${
+            completed ? "bg-emerald-500" : "bg-slate-200"
+          }`}
+        />
       )}
 
       <div className={`h-11 w-11 rounded-full border flex items-center justify-center shrink-0 shadow-sm ${color}`}>
@@ -389,8 +361,15 @@ function TimelineTrackerItem({ title, completed, current, last }) {
       <div className="pt-2">
         <h3 className="text-sm font-extrabold text-[#071A52]">{title}</h3>
         <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-widest">
-          {completed ? "Completed Checkpoint" : current ? "Current Verification Stage" : "Scheduled Checkpoint"}
+          {completed
+            ? "Completed Checkpoint"
+            : current
+              ? "Current Verification Stage"
+              : "Scheduled Checkpoint"}
         </p>
+        {subtitle && (
+          <p className="text-[11px] text-emerald-600 mt-1 font-semibold">{subtitle}</p>
+        )}
       </div>
     </div>
   );

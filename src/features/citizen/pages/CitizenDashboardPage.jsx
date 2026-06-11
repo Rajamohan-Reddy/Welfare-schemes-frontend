@@ -20,20 +20,30 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { getUser } from "../../../utils/storage";
+import useAuth from "../../../hooks/useAuth";
 import QuickActionCard from "../../../components/dashboard/QuickActionCard";
 import SectionCard from "../../../components/dashboard/SectionCard";
 import { ROUTES } from "../../../constants/routes";
-import { getMyApplicationsApi, getApplicationTimelineApi } from "../../schemes/api/applications.api";
+import {
+  useGetMyApplicationsQuery,
+  useLazyGetApplicationTimelineQuery,
+} from "../../../store/services/applications.api";
+import {
+  APPLICATION_WORKFLOW_STATUSES,
+  getApplicationProgress,
+  getCompletedStepIndex,
+  getStageLabel,
+  normalizeApplicationStatus,
+} from "../../../utils/applicationStatus";
 
 function CitizenDashboardPage() {
   const navigate = useNavigate();
-  const user = getUser();
-  const now = new Date();
-  const [applications, setApplications] = useState([]);
+  const { user } = useAuth();
+  const { data: applications = [] } = useGetMyApplicationsQuery();
+  const [fetchTimeline, { data: timeline = [], isFetching: timelineLoading }] =
+    useLazyGetApplicationTimelineQuery();
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
-  const [timeline, setTimeline] = useState([]);
-  const [timelineLoading, setTimelineLoading] = useState(false);
+  const now = new Date();
 
   const currentDate = now.toLocaleDateString("en-IN", {
     weekday: "short",
@@ -54,46 +64,17 @@ function CitizenDashboardPage() {
     return "Good Evening";
   };
 
-  // Load applications on mount
   useEffect(() => {
-    loadApplications();
-  }, []);
+    if (applications.length > 0 && !selectedApplicationId) {
+      setSelectedApplicationId(applications[0]._id);
+    }
+  }, [applications, selectedApplicationId]);
 
-  // Load timeline when selected application changes
   useEffect(() => {
     if (selectedApplicationId) {
-      loadTimeline(selectedApplicationId);
+      fetchTimeline(selectedApplicationId);
     }
-  }, [selectedApplicationId]);
-
-  const loadApplications = async () => {
-    try {
-      const resp = await getMyApplicationsApi();
-      const apps = Array.isArray(resp.data?.data) ? resp.data.data : [];
-      setApplications(apps);
-      if (apps.length > 0) {
-        setSelectedApplicationId(apps[0]._id);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load applications");
-    }
-  };
-
-  const loadTimeline = async (appId) => {
-    try {
-      setTimelineLoading(true);
-      const resp = await getApplicationTimelineApi(appId);
-      const timelineData = Array.isArray(resp.data?.data) ? resp.data.data : [];
-      setTimeline(timelineData);
-    } catch (err) {
-      console.error(err);
-      // Fallback to empty timeline on error
-      setTimeline([]);
-    } finally {
-      setTimelineLoading(false);
-    }
-  };
+  }, [selectedApplicationId, fetchTimeline]);
 
   // Get status icon and color
   const getStatusIcon = (status) => {
@@ -325,29 +306,53 @@ function CitizenDashboardPage() {
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Processing Progress</h4>
                 <div className="flex items-center gap-2">
-                  {["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED", "PAID"].map((status, idx) => {
-                    const currentApp = applications.find(a => a._id === selectedApplicationId);
-                    const statusOrder = ["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED", "PAID"];
-                    const currentStatusIdx = statusOrder.indexOf(currentApp?.status);
+                  {APPLICATION_WORKFLOW_STATUSES.map((status, idx) => {
+                    const currentApp = applications.find(
+                      (a) => a._id === selectedApplicationId,
+                    );
+                    const currentStatusIdx = getCompletedStepIndex(
+                      currentApp?.status,
+                    );
                     const isCompleted = currentStatusIdx >= idx;
-                    const isCurrent = currentStatusIdx === idx;
-                    
+                    const isCurrent =
+                      normalizeApplicationStatus(currentApp?.status) === status &&
+                      normalizeApplicationStatus(currentApp?.status) !== "PAID";
+
                     return (
                       <div key={status} className="flex items-center gap-2 flex-1">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition ${
-                          isCompleted ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
-                        } ${isCurrent ? "ring-2 ring-emerald-300" : ""}`}>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition ${
+                            isCompleted
+                              ? "bg-emerald-500 text-white"
+                              : "bg-slate-200 text-slate-500"
+                          } ${isCurrent ? "ring-2 ring-emerald-300" : ""}`}
+                        >
                           {isCompleted ? "✓" : idx + 1}
                         </div>
-                        {idx < 4 && <div className={`flex-1 h-1 rounded-full transition ${isCompleted ? "bg-emerald-500" : "bg-slate-200"}`} />}
+                        {idx < APPLICATION_WORKFLOW_STATUSES.length - 1 && (
+                          <div
+                            className={`flex-1 h-1 rounded-full transition ${
+                              isCompleted ? "bg-emerald-500" : "bg-slate-200"
+                            }`}
+                          />
+                        )}
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600">{applications.find(a => a._id === selectedApplicationId)?.status.replace(/_/g, " ")}</span>
+                  <span className="text-xs font-semibold text-slate-600">
+                    {getStageLabel(
+                      applications.find((a) => a._id === selectedApplicationId)
+                        ?.status,
+                    )}
+                  </span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase">
-                    {["SUBMITTED", "DOCUMENT_VERIFIED", "FIELD_VERIFIED", "APPROVED", "PAID"].indexOf(applications.find(a => a._id === selectedApplicationId)?.status) + 1} of 5
+                    {getApplicationProgress(
+                      applications.find((a) => a._id === selectedApplicationId)
+                        ?.status,
+                    )}
+                    % complete
                   </span>
                 </div>
               </div>

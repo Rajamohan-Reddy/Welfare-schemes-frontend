@@ -1,20 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
 import { Loader2, CheckCircle2, FileText, UploadCloud, FileCheck, ArrowLeft, Landmark, User, MapPin, Briefcase } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
-import { getSchemeByIdApi } from "../api/schemes.api";
-import { uploadFileApi } from "../api/upload.api";
-import { applySchemeApi } from "../api/applications.api";
+import { useGetSchemeByIdQuery } from "../../../store/services/schemes.api";
+import { useUploadFileMutation } from "../../../store/services/upload.api";
+import { useApplySchemeMutation } from "../../../store/services/applications.api";
 
 function ApplySchemePage() {
   const { schemeId } = useParams();
   const navigate = useNavigate();
+  const { data: scheme, isLoading: loading } = useGetSchemeByIdQuery(schemeId);
+  const [uploadFile] = useUploadFileMutation();
+  const [applyScheme, { isLoading: submitting }] = useApplySchemeMutation();
 
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [scheme, setScheme] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [formData, setFormData] = useState({
     occupation: "",
@@ -25,24 +25,9 @@ function ApplySchemePage() {
   const [documents, setDocuments] = useState([]);
   const [errors, setErrors] = useState({});
 
-  useEffect(() => {
-    const fetchScheme = async () => {
-      try {
-        const response = await getSchemeByIdApi(schemeId);
-        setScheme(response.data.data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchScheme();
-  }, [schemeId]);
-
   const handleDocumentUpload = async (file, documentType) => {
     try {
-      const uploaded = await uploadFileApi(file, documentType);
+      const uploaded = await uploadFile({ file, documentType }).unwrap();
       setDocuments((prev) => [
         ...prev.filter((item) => item.documentType !== documentType),
         uploaded,
@@ -96,8 +81,6 @@ function ApplySchemePage() {
     }
 
     try {
-      setSubmitting(true);
-
       const payload = {
         schemeId,
         documents,
@@ -105,8 +88,8 @@ function ApplySchemePage() {
         applicantRemarks: remarks,
       };
 
-      const response = await applySchemeApi(payload);
-      const applicationId = response?.data?.data?._id;
+      const response = await applyScheme(payload).unwrap();
+      const applicationId = response?._id ?? response?.data?._id;
 
       if (!applicationId) {
         toast.error("Application submitted, but no tracking ID returned.");
@@ -117,11 +100,7 @@ function ApplySchemePage() {
       navigate(`/citizen/tracking/${applicationId}`);
     } catch (error) {
       console.error(error);
-      toast.error(
-        error?.response?.data?.message || "Unable to submit application",
-      );
-    } finally {
-      setSubmitting(false);
+      toast.error(error?.data?.message || "Unable to submit application");
     }
   };
 

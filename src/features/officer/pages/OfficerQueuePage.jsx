@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Clock3,
@@ -13,10 +13,17 @@ import toast from "react-hot-toast";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import {
-  getPendingQueueApi,
-  getDocumentVerifiedQueueApi,
-  getFieldVerifiedQueueApi,
-} from "../../verification/api/verification.api";
+  useGetPendingQueueQuery,
+  useGetDocumentVerifiedQueueQuery,
+  useGetFieldVerifiedQueueQuery,
+} from "../../../store/services/verification.api";
+
+const normalizeQueue = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.applications)) return payload.applications;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
 
 const queues = [
   { key: "pending", label: "Pending Verification", icon: Clock3 },
@@ -27,39 +34,36 @@ const queues = [
 function OfficerQueuePage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("pending");
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    loadQueue();
-  }, [activeTab]);
+  const pendingQuery = useGetPendingQueueQuery(undefined, {
+    skip: activeTab !== "pending",
+  });
+  const documentQuery = useGetDocumentVerifiedQueueQuery(undefined, {
+    skip: activeTab !== "documentVerified",
+  });
+  const fieldQuery = useGetFieldVerifiedQueueQuery(undefined, {
+    skip: activeTab !== "fieldVerified",
+  });
 
-  const loadQueue = async () => {
+  const activeQuery =
+    activeTab === "pending"
+      ? pendingQuery
+      : activeTab === "documentVerified"
+        ? documentQuery
+        : fieldQuery;
+
+  const applications = normalizeQueue(activeQuery.data);
+  const loading = activeQuery.isLoading;
+
+  const handleRefreshQueue = async () => {
     try {
-      setLoading(true);
-      const response =
-        activeTab === "pending"
-          ? await getPendingQueueApi()
-          : activeTab === "documentVerified"
-            ? await getDocumentVerifiedQueueApi()
-            : await getFieldVerifiedQueueApi();
-
-      const payload = response.data.data;
-      const queueData = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.applications)
-          ? payload.applications
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
-
-      setApplications(queueData);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to retrieve verification queue");
-    } finally {
-      setLoading(false);
+      const result = await activeQuery.refetch();
+      if (result.error) {
+        toast.error("Failed to refresh queue");
+      }
+    } catch {
+      toast.error("Failed to refresh queue");
     }
   };
 
@@ -132,7 +136,11 @@ function OfficerQueuePage() {
                 {activeTabLabel}
               </h2>
             </div>
-            <Button onClick={loadQueue} variant="secondary" fullWidth={false}>
+            <Button
+              onClick={handleRefreshQueue}
+              variant="secondary"
+              fullWidth={false}
+            >
               Refresh queue
             </Button>
           </div>

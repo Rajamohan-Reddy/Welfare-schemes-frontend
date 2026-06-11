@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DollarSign,
   TrendingUp,
@@ -29,85 +29,57 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import toast from "react-hot-toast";
-import { getPaymentsApi, getPaymentsAnalyticsApi } from "../api/payments.api";
+import {
+  useGetPaymentsQuery,
+  useGetPaymentsAnalyticsQuery,
+} from "../../../store/services/payments.api";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 
 const COLORS_APPLE = ["#34C759", "#FF3B30", "#FFA500", "#5AC8FA"];
 
 function PaymentManagementPage() {
-  const [loading, setLoading] = useState(true);
-  const [payments, setPayments] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
+  const {
+    data: payments = [],
+    isLoading: paymentsLoading,
+    refetch: refetchPayments,
+    isError: paymentsError,
+  } = useGetPaymentsQuery();
+  const { data: analyticsApiData = {}, isLoading: analyticsLoading } =
+    useGetPaymentsAnalyticsQuery();
+  const loading = paymentsLoading || analyticsLoading;
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      // Load payments
-      let paymentsList = [];
-      try {
-        console.log("🔄 Fetching payments...");
-        const paymentsResp = await getPaymentsApi();
-        console.log("📦 Payments response:", paymentsResp);
-
-        paymentsList = Array.isArray(paymentsResp.data?.data)
-          ? paymentsResp.data.data
-          : Array.isArray(paymentsResp.data)
-            ? paymentsResp.data
-            : [];
-        console.log("✅ Payments loaded:", paymentsList.length, "items");
-      } catch (paymentErr) {
-        console.error("❌ Error loading payments:", paymentErr);
-        toast.error("Failed to load payments. Please try again.");
-        setPayments([]);
-      }
-
-      // Load analytics (optional - doesn't block if fails)
-      let analyticsData = {};
-      try {
-        console.log("🔄 Fetching analytics...");
-        const analyticsResp = await getPaymentsAnalyticsApi();
-        console.log("📦 Analytics response:", analyticsResp);
-
-        analyticsData = analyticsResp.data?.data || {};
-        console.log("✅ Analytics loaded");
-      } catch (analyticsErr) {
-        console.error("⚠️ Analytics failed (non-blocking):", analyticsErr);
-        analyticsData = {};
-      }
-
-      const derivedAnalytics = {
-        totalPayments: paymentsList.length,
-        successfulPayments: paymentsList.filter(
-          (payment) => payment.paymentStatus === "SUCCESS",
-        ).length,
-        totalDisbursed: paymentsList.reduce(
-          (total, payment) =>
-            total +
-            (payment.paymentStatus === "SUCCESS"
-              ? Number(payment.amount || 0)
-              : 0),
-          0,
-        ),
-      };
-
-      setPayments(paymentsList);
-      setAnalytics({ ...analyticsData, ...derivedAnalytics });
-    } catch (err) {
-      console.error("Error in loadData:", err);
-      toast.error("Failed to load payment data");
-    } finally {
-      setLoading(false);
+    if (paymentsError) {
+      toast.error("Failed to load payments. Please try again.");
     }
+  }, [paymentsError]);
+
+  const analytics = useMemo(() => {
+    const derivedAnalytics = {
+      totalPayments: payments.length,
+      successfulPayments: payments.filter(
+        (payment) => payment.paymentStatus === "SUCCESS",
+      ).length,
+      totalDisbursed: payments.reduce(
+        (total, payment) =>
+          total +
+          (payment.paymentStatus === "SUCCESS"
+            ? Number(payment.amount || 0)
+            : 0),
+        0,
+      ),
+    };
+
+    return { ...analyticsApiData, ...derivedAnalytics };
+  }, [payments, analyticsApiData]);
+
+  const loadData = () => {
+    refetchPayments();
   };
 
   const filteredPayments = payments.filter((payment) => {

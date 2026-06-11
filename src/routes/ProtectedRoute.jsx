@@ -1,14 +1,26 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 import { ROUTES } from "../constants/routes";
 
-import { getAccessToken } from "../utils/storage";
+function AuthLoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F7FB]">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#071A52]" />
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }) {
-  const token = getAccessToken();
+  const { isAuthenticated, initialized } = useSelector((state) => state.auth);
+  const location = useLocation();
 
-  if (!token) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+  if (!initialized) {
+    return <AuthLoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.LOGIN} replace state={{ from: location }} />;
   }
 
   return children;

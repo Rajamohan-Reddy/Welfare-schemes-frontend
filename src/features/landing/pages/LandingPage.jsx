@@ -6,8 +6,8 @@ import {
   Shield, HelpCircle, Phone, ChevronDown, Award, Zap,
   Building, Star, Lock, Clock, Globe, ChevronRight,
 } from "lucide-react";
-import { getAllSchemesApi } from "../../schemes/api/schemes.api";
-import { getUser } from "../../../utils/storage";
+import { useGetAllSchemesQuery } from "../../../store/services/schemes.api";
+import useAuth from "../../../hooks/useAuth";
 import Logo from "../../../assets/images/ap-logo.png";
 
 /* ─── Animated counter ──────────────────────────────────────────────────── */
@@ -61,26 +61,17 @@ const colorMap = {
 
 function LandingPage() {
   const navigate = useNavigate();
-  const user = getUser();
-  const [schemes, setSchemes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { data: allSchemes = [], isLoading: loading } = useGetAllSchemesQuery();
+  const schemes = allSchemes.slice(0, 6);
   const [activeFaq, setActiveFaq] = useState(null);
   const [navScrolled, setNavScrolled] = useState(false);
 
   useEffect(() => {
-    loadSchemes();
     const onScroll = () => setNavScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  const loadSchemes = async () => {
-    try {
-      const resp = await getAllSchemesApi({ limit: 6 });
-      setSchemes(resp.data.data || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
 
   const handleGetStarted = () => {
     if (user) navigate(`/${user.role.toLowerCase()}/dashboard`);
